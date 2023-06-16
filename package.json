@@ -1,0 +1,31 @@
+{
+  "name": "bot-telegram-histo-search",
+  "version": "0.0.0",
+  "description": "A bot which counts the number of occurence of a search in the message on a time frame.",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc src/index.ts",
+    "dev": "nodemon src/index.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tortuga0x0000/tg-history-count.git"
+  },
+  "keywords": [
+    "telegram",
+    "history",
+    "search",
+    "analytic"
+  ],
+  "author": "Tortuga0x0000",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/tortuga0x0000/tg-histo-count/issues"
+  },
+  "homepage": "https://github.com/tortuga0x0000/tg-histo-count#readme",
+  "devDependencies": {
+    "nodemon": "^2.0.22",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.1.3"
+  }
+}
