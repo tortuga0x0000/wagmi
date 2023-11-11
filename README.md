@@ -1,5 +1,5 @@
 # Telegram history counter
-A bot which count the number of a search result occurence in a channel.
+A bot which list any ticket found in a channel to a Google Sheet file.
 
 ## Development
 
