@@ -12,10 +12,10 @@ enum Header {
 }
 
 const TAB = '_test'
-
+console.log(process.env.PRIVATE_KEY)
 const jwt = new JWT({
   email: process.env.CLIENT_EMAIL,
-  key: process.env.PRIVATE_KEY,
+  key: process.env.PRIVATE_KEY!.split(String.raw`\n`).join('\n'),
   scopes:['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive.file'],
 });
 
