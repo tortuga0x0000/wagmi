@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "description": "A bot which list any ticket found in a channel to a Google Sheet file.",
   "main": "dist/index.js",
+  "files": ["dist/*"],
   "scripts": {
     "build": "tsc",
     "dev": "nodemon src/index.ts"
