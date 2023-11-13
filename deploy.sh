@@ -3,6 +3,7 @@ rm -rf ~/jared-bot
 mkdir jared-bot
 git clone https://github.com/dagatsoin/tg-ticker-listing.git jared-bot
 cd jared-bot
+git checkout master
 npm i
 npm run build
 cp ./dist/* ../runtime/jared-bot
