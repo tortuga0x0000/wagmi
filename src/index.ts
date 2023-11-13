@@ -12,7 +12,7 @@ enum Header {
 }
 
 const TAB = '_test'
-console.log(process.env.PRIVATE_KEY)
+
 const jwt = new JWT({
   email: process.env.CLIENT_EMAIL,
   key: process.env.PRIVATE_KEY!.split(String.raw`\n`).join('\n'),
