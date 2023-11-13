@@ -2,7 +2,6 @@ import * as dotenv from 'dotenv'
 import { GoogleSpreadsheet } from 'google-spreadsheet'
 import { JWT } from 'google-auth-library';
 import { Telegraf } from 'telegraf'
-import creds from '../creds.json'
 
 dotenv.config();
 
@@ -15,8 +14,8 @@ enum Header {
 const TAB = '_test'
 
 const jwt = new JWT({
-  email: creds.client_email,
-  key: creds.private_key,
+  email: process.env.CLIENT_EMAIL,
+  key: process.env.PRIVATE_KEY,
   scopes:['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive.file'],
 });
 

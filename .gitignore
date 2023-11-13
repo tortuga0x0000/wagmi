@@ -1,5 +1,5 @@
 node_modules
 dist
+aws.cer
 .env
 .vscode
-creds.json
