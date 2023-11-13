@@ -1,5 +1,5 @@
 {
-  "name": "bot-telegram-histo-search",
+  "name": "tg-ticker-listing",
   "version": "0.0.0",
   "description": "A bot which list any ticket found in a channel to a Google Sheet file.",
   "main": "dist/index.js",
