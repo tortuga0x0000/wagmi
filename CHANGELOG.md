@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.0.1-alpha.3](https://github.com/tortuga0x0000/wagmi/compare/v0.0.1-alpha.2...v0.0.1-alpha.3) (2023-11-15)
+
+
+### Bug Fixes
+
+* env var not found ([bb7d6f9](https://github.com/tortuga0x0000/wagmi/commit/bb7d6f9eb2dac893c85ece6e3a7c7616eb35de0a))
+
 ### [0.0.1-alpha.2](https://github.com/tortuga0x0000/wagmi/compare/v0.0.1-alpha.1...v0.0.1-alpha.2) (2023-11-15)
 
 

@@ -3,7 +3,7 @@ import { GoogleSpreadsheet, GoogleSpreadsheetRow } from 'google-spreadsheet'
 import { JWT } from 'google-auth-library';
 import { Telegraf } from 'telegraf'
 
-dotenv.config(process.env.ENV === "production" ? {path: __dirname + '/.env'} : undefined);
+dotenv.config(process.env.NODE_ENV === "production" ? {path: __dirname + '/.env'} : undefined);
 
 enum Header {
   Ticker = "Ticker",
