@@ -1,17 +1,24 @@
 import * as dotenv from 'dotenv'
-import { GoogleSpreadsheet, GoogleSpreadsheetRow } from 'google-spreadsheet'
+import { MongoClient } from 'mongodb';
+import { GoogleSpreadsheet } from 'google-spreadsheet'
 import { JWT } from 'google-auth-library';
 import { Telegraf } from 'telegraf'
+import { Data } from './types'
 
 dotenv.config(process.env.NODE_ENV === "production" ? {path: __dirname + '/.env'} : undefined);
 
-enum Header {
-  Ticker = "Ticker",
-  Messages = "Messages",
-  Shillers = "Shillers",
-}
+// Connection URL with username and password
+const username = process.env.WAGMI_USER && encodeURIComponent(process.env.WAGMI_USER);
+const password = process.env.DB_PWD && encodeURIComponent(process.env.DB_PWD);
+const dbName = 'wagmi-db';
+const collectionName = 'MetaquantDAO'; // Your collection name
 
-const TAB = '_test'
+// Connection URL
+const url = process.env.NODE_ENV === "production"
+  ? `mongodb://${username}:${password}@localhost:27017/${dbName}`
+  : 'mongodb://localhost:27017'
+
+const client = new MongoClient(url);
 
 const jwt = new JWT({
   email: process.env.CLIENT_EMAIL,
@@ -33,71 +40,60 @@ bot.on('text', async (ctx) => {
     const tickerRegex = /\$[a-zA-Z]+/g; // Regex pour détecter le ticker
     const tickers = message.match(tickerRegex) ?? []
 
-    for (const ticker of tickers) {
-      const sheet = doc.sheetsByTitle[TAB];
-      const shouldAdd = !hasTicker(await sheet.getRows(), ticker)
-
-      await addTickerToSheet(ticker);
-
       const author = ctx.from.username
-
-      if (author) {
-        // Add shiller
-        await addShiller(ticker, author)
-
-        // Add msg
+  const date = ctx.message.date
         const groupName = ctx.chat.type === 'group' || ctx.chat.type === 'supergroup' ? ctx.chat.title : 'PRIVATE_GROUP';
         const messageURL = `https://t.me/${groupName}/${ctx.message.message_id}`;
-        await addMessage(ticker, messageURL, message, author, ctx.message.date)
+      
 
-        if (shouldAdd) {
+  for (const ticker of tickers) {
+    const collection = await getCollection()
+    const item = await collection.findOne({ ticker })
+
+    if (item && author) {
+      item.shillers.push(author)
+      item.messages.push({url: messageURL, content: message, author, date })
+      collection.replaceOne({_id: item._id}, item)
+
+    } else if (author) {
+      await collection.insertOne({
+        ticker,
+        shillers: [author],
+        messages: [{ url: messageURL, content: message, author, date }]
+      })
+
           ctx.reply(`Ticker ${ticker} add to our database`);
-        }
       }
     }
 }); 
 
-async function addMessage(ticker: string, url: string, content: string, author: string, date: number) {
-  const sheet = doc.sheetsByTitle[TAB];
-  const row = (await sheet.getRows()).find(r => r.get(Header.Ticker) === ticker)
-  if (row) {
-    // deserialize/serialise message
-    const messages: Array<{url: string, content: string, author: string, date: number }> = JSON.parse(row.get(Header.Messages) ?? "[]")
-    messages.push({url, content, author, date })
-    row.set(Header.Messages, JSON.stringify(messages))
-    row.save()
-  }
-}
 
-async function addShiller(ticker: string, username: string){
-  const sheet = doc.sheetsByTitle[TAB];
-  const row = (await sheet.getRows()).find(r => r.get(Header.Ticker) === ticker)
-  if (row) {
-    const shillers = row.get(Header.Shillers)?.split(', ') ?? []
-    shillers.push(username)
-    row.set(Header.Shillers, shillers.join(', '))
-    row.save()
-  }
-}
+async function getCollection() {
+  const db = client.db(dbName);
+  const hasCollection = (await db.listCollections({ collectionName }, { nameOnly: true }).toArray())
+    .some(c => c.name === collectionName)
 
-async function addTickerToSheet(ticker: string) {
-  const sheet = doc.sheetsByTitle[TAB];
-  if (!hasTicker(await sheet.getRows(), ticker)) {
-    await sheet.addRow({ Ticker: ticker });
+  // Check if the collection exists and create it with the schema if it doesn't
+  if (!hasCollection) {
+    const newCollection = await db.createCollection<Data>(collectionName/* , {
+      validator: dataSchema
+    } */);
+    console.log(`Collection ${collectionName} created with schema validation`);
+    return newCollection
+  } else {
+    return db.collection<Data>(collectionName)
   }
-}
-
-function hasTicker(rows: GoogleSpreadsheetRow<Record<string, any>>[], ticker: string) {
-  return rows.some(row => row.get(Header.Ticker) === ticker);
 }
 
 async function main() {
+  await client.connect();
+  console.log('Connected to MongoDB');
   await authGoogleSheets();
   bot.launch();
 }
 
-main()
+main().catch(console.error);
 
-// Pour le cas où Node.js est fermé de manière inattendue
+// In case of unexcepted close of the Node.js process
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
