@@ -1,11 +1,11 @@
-# clone repo
-rm -rf ~/jared-bot
-mkdir jared-bot
-git clone https://github.com/dagatsoin/tg-ticker-listing.git jared-bot
-cd jared-bot
+rm -rf ~/wagmi
+mkdir wagmi
+git clone https://github.com/tortuga0x0000/wagmi.git wagmi
+cd wagmi
 git checkout master
 npm i
 npm run build
-cp ./dist/* ../runtime/jared-bot
-cd ../runtime/jared-bot
-node index.js
+sudo systemctl stop wagmi.service
+cp ./dist/* ../runtime/wagmi
+cp -r ./node_modules ../runtime/wagmi
+sudo systemctl start wagmi.service
