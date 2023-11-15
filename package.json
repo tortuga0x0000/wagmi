@@ -1,7 +1,7 @@
 {
-  "name": "tg-ticker-listing",
+  "name": "wagmi",
   "version": "0.0.0",
-  "description": "A bot which list any ticket found in a channel to a Google Sheet file.",
+  "description": "A Telegram bot which enhance your group research about a coin with AI.",
   "main": "dist/index.js",
   "files": ["dist/*"],
   "scripts": {
@@ -11,7 +11,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/tortuga0x0000/tg-ticket-listing.git"
+    "url": "git+https://github.com/tortuga0x0000/wagmi.git"
   },
   "keywords": [
     "telegram",
@@ -21,11 +21,12 @@
     "analytic"
   ],
   "author": "Tortuga0x0000",
+  "email": "tortuga0x0000@proton.me",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/tortuga0x0000/tg-ticket-listing/issues"
+    "url": "https://github.com/tortuga0x0000/wagmi/issues"
   },
-  "homepage": "https://github.com/tortuga0x0000/tg-ticket-listing#readme",
+  "homepage": "https://github.com/tortuga0x0000/wagmi#readme",
   "devDependencies": {
     "dotenv": "^16.2.0",
     "nodemon": "^2.0.22",
