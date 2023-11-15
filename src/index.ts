@@ -1,5 +1,5 @@
 import * as dotenv from 'dotenv'
-import { GoogleSpreadsheet } from 'google-spreadsheet'
+import { GoogleSpreadsheet, GoogleSpreadsheetRow } from 'google-spreadsheet'
 import { JWT } from 'google-auth-library';
 import { Telegraf } from 'telegraf'
 
@@ -34,6 +34,9 @@ bot.on('text', async (ctx) => {
     const tickers = message.match(tickerRegex) ?? []
 
     for (const ticker of tickers) {
+      const sheet = doc.sheetsByTitle[TAB];
+      const shouldAdd = !hasTicker(await sheet.getRows(), ticker)
+
       await addTickerToSheet(ticker);
 
       const author = ctx.from.username
@@ -47,7 +50,9 @@ bot.on('text', async (ctx) => {
         const messageURL = `https://t.me/${groupName}/${ctx.message.message_id}`;
         await addMessage(ticker, messageURL, message, author, ctx.message.date)
 
-        ctx.reply(`Ticker ${ticker} ajouté à Google Sheets`);
+        if (shouldAdd) {
+          ctx.reply(`Ticker ${ticker} add to our database`);
+        }
       }
     }
 }); 
@@ -77,10 +82,13 @@ async function addShiller(ticker: string, username: string){
 
 async function addTickerToSheet(ticker: string) {
   const sheet = doc.sheetsByTitle[TAB];
-  const rows = await sheet.getRows()
-  if (!rows.some(row => row.get(Header.Ticker) === ticker)) {
+  if (!hasTicker(await sheet.getRows(), ticker)) {
     await sheet.addRow({ Ticker: ticker });
   }
+}
+
+function hasTicker(rows: GoogleSpreadsheetRow<Record<string, any>>[], ticker: string) {
+  return rows.some(row => row.get(Header.Ticker) === ticker);
 }
 
 async function main() {
