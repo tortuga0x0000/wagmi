@@ -1,31 +1,46 @@
 {
-  "name": "bot-telegram-histo-search",
-  "version": "0.0.0",
-  "description": "A bot which counts the number of occurence of a search in the message on a time frame.",
+  "name": "wagmi",
+  "version": "0.0.1-alpha.0",
+  "description": "A Telegram bot which enhance your group research about a coin with AI.",
   "main": "dist/index.js",
+  "files": [
+    "dist/*"
+  ],
   "scripts": {
-    "build": "tsc src/index.ts",
-    "dev": "nodemon src/index.ts"
+    "build": "tsc",
+    "dev": "nodemon src/index.ts",
+    "deploy": "sh deploy.sh"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/tortuga0x0000/tg-history-count.git"
+    "url": "git+https://github.com/tortuga0x0000/wagmi.git"
   },
   "keywords": [
     "telegram",
-    "history",
+    "ticker",
+    "crypto",
     "search",
     "analytic"
   ],
   "author": "Tortuga0x0000",
+  "email": "tortuga0x0000@proton.me",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/tortuga0x0000/tg-histo-count/issues"
+    "url": "https://github.com/tortuga0x0000/wagmi/issues"
   },
-  "homepage": "https://github.com/tortuga0x0000/tg-histo-count#readme",
+  "homepage": "https://github.com/tortuga0x0000/wagmi#readme",
   "devDependencies": {
+    "dotenv": "^16.2.0",
     "nodemon": "^2.0.22",
     "ts-node": "^10.9.1",
     "typescript": "^5.1.3"
+  },
+  "dependencies": {
+    "google-auth-library": "^9.2.0",
+    "google-spreadsheet": "^4.1.1",
+    "telegraf": "^4.15.0"
+  },
+  "resolutions": {
+    "ffi-napi": "4.0.1"
   }
 }
