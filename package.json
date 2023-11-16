@@ -1,6 +1,6 @@
 {
   "name": "wagmi",
-  "version": "0.0.1-alpha.4",
+  "version": "0.0.1-alpha.5",
   "description": "A Telegram bot which enhance your group research about a coin with AI.",
   "main": "dist/index.js",
   "files": [
