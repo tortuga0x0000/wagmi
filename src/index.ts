@@ -9,14 +9,13 @@ import { getTickers } from './business';
 dotenv.config(process.env.NODE_ENV === "production" ? { path: __dirname + '/.env' } : undefined);
 
 // Connection URL with username and password
-const username = process.env.WAGMI_USER && encodeURIComponent(process.env.WAGMI_USER);
+const username = process.env.DB_USER && encodeURIComponent(process.env.DB_USER);
 const password = process.env.DB_PWD && encodeURIComponent(process.env.DB_PWD);
-const dbName = 'wagmi-db';
-const collectionName = 'MetaquantDAO'; // Your collection name
+const dbName = 'wagmi';
 
 // Connection URL
 const url = process.env.NODE_ENV === "production"
-  ? `mongodb://${username}:${password}@localhost:27017/${dbName}`
+  ? `mongodb://${username}:${password}@localhost:27017/${dbName}?authSource=wagmi`
   : 'mongodb://localhost:27017'
 
 const client = new MongoClient(url);
@@ -45,9 +44,8 @@ bot.on('text', async (ctx) => {
   const groupName = ctx.chat.type === 'group' || ctx.chat.type === 'supergroup' ? ctx.chat.title : 'PRIVATE_GROUP';
   const messageURL = `https://t.me/${groupName}/${ctx.message.message_id}`;
 
-
   for (const ticker of tickers) {
-    const collection = await getCollection()
+    const collection = await getCollection(ctx.chat.id.toString())
     const item = await collection.findOne({ ticker })
 
     if (item && author) {
@@ -67,9 +65,9 @@ bot.on('text', async (ctx) => {
   }
 });
 
-async function getCollection() {
+async function getCollection(collectionName: string) {
   const db = client.db(dbName);
-  const hasCollection = (await db.listCollections({ collectionName }, { nameOnly: true }).toArray())
+  const hasCollection = (await db.listCollections({}, { nameOnly: true }).toArray())
     .some(c => c.name === collectionName)
 
   // Check if the collection exists and create it with the schema if it doesn't
