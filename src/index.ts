@@ -44,8 +44,6 @@ bot.on('text', async (ctx) => {
         shillers: [author],
         messages: [{ url: messageURL, content: message, author, date }]
       })
-
-      ctx.reply(`Ticker ${ticker} add to our database`);
     }
   }
 });
