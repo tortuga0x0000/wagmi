@@ -9,7 +9,7 @@ Telegram bot which enhance your group research about a coin with AI.
 # Warning: we assume that the host is secured enough to expose the container on the port 27017
 docker run -it -d --name wagmi-mongo -p 27017:27017 --restart=unless-stopped -e MONGO_INITDB_ROOT_USERNAME=root -e MONGO_INITDB_ROOT_PASSWORD=pwd mongo
 
-docker exec -it wagmi-mongo mongosh -u root -p pwd --authenticationDatabase wagmi
+docker exec -it wagmi-mongo mongosh -u root -p pwd --authenticationDatabase admin
 ```
 Once in the mongo shell, create the wagmi user which will be in charge of the wagmi database. For security reason, root user is just used via mongoshell for maintenance.
 ```js 
