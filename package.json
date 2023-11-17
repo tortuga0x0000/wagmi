@@ -8,8 +8,8 @@
   ],
   "scripts": {
     "build": "tsc",
-    "dev": "nodemon & tsc --watch",
-    "start": "node dist/index.js",
+    "dev": "tsc --watch",
+    "start": "nodemon dist/index.js",
     "deploy": "sh deploy.sh",
     "test": "jest"
   },
