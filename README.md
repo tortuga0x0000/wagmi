@@ -1,9 +1,7 @@
-# Telegram history counter
-A bot which list any ticket found in a channel to a Google Sheet file.
+# Telegram crypto group assistant
+Telegram bot which enhance your group research about a coin with AI.
 
 ## Development
-
-`npm run dev`
 
 ### Create a local mongo database
 
@@ -22,6 +20,44 @@ db.createUser({
     pwd: "password",
     roles: [ "readWrite", "dbAdmin" ]
 })
+```
+
+### Start dev environnement
+
+```bash
+$npm i
+$npm run dev
+$npm run start
+```
+
+## Deployment
+
+- requirements: this early stage setup assumes that you have a service on your server called `wagmi.service` with the following config.
+
+```conf
+[Unit]
+Description=Telegram bot which aggregate information from a group and use AI to enhance this informations.
+
+[Service]
+Environment=NODE_ENV=production
+ExecStart=/home/ubuntu/.nvm/versions/node/v20.9.0/bin/node /home/ubuntu/runtime/wagmi/index.js
+Restart=always
+# Restart service after 10 seconds if node service crashes
+RestartSec=10
+# Output to syslog
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=wagmi
+User=ubuntu
+
+[Install]
+WantedBy=multi-user.target
+```
+
+- copy the deploy.sh script on your server and run it. It will download the master branch, compile it and restart the service.
+
+```bash
+$npm run dev
 ```
 
 ### Utility commands
