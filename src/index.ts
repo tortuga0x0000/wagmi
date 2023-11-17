@@ -1,7 +1,5 @@
 import * as dotenv from 'dotenv'
 import { MongoClient } from 'mongodb';
-import { GoogleSpreadsheet } from 'google-spreadsheet'
-import { JWT } from 'google-auth-library';
 import { Telegraf } from 'telegraf'
 import { Data } from './types'
 import { getTickers } from './business';
@@ -19,19 +17,6 @@ const url = process.env.NODE_ENV === "production"
   : 'mongodb://localhost:27017'
 
 const client = new MongoClient(url);
-
-const jwt = new JWT({
-  email: process.env.CLIENT_EMAIL,
-  key: process.env.PRIVATE_KEY!.split(String.raw`\n`).join('\n'),
-  scopes: ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive.file'],
-});
-
-const doc = new GoogleSpreadsheet('1VP0JAbHjF5uyIkU3Fzx_P4rFb4C3dcZ8h6_ICX-vBrI', jwt);
-
-async function authGoogleSheets() {
-  await doc.loadInfo()
-  console.info("Auth OK")
-}
 
 const bot = new Telegraf(process.env.TG_BOT_ID!);
 
@@ -85,7 +70,6 @@ async function getCollection(collectionName: string) {
 async function main() {
   await client.connect();
   console.log('Connected to MongoDB');
-  await authGoogleSheets();
   bot.launch();
 }
 
