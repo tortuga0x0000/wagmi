@@ -10,27 +10,37 @@ dotenv.config(process.env.NODE_ENV === "production" ? { path: __dirname + '/.env
 const username = process.env.DB_USER && encodeURIComponent(process.env.DB_USER);
 const password = process.env.DB_PWD && encodeURIComponent(process.env.DB_PWD);
 const dbName = 'wagmi';
+//TEMP just for "forward" feature experimentation
+const collectionName = "data"
 
 // Connection URL
-const url = process.env.NODE_ENV === "production"
-  ? `mongodb://${username}:${password}@localhost:27017/${dbName}?authSource=wagmi`
-  : 'mongodb://localhost:27017'
+const url = `mongodb://${username}:${password}@localhost:27017/${dbName}?authSource=${dbName}`
 
 const client = new MongoClient(url);
 
 const bot = new Telegraf(process.env.TG_BOT_ID!);
 
 bot.on('text', async (ctx) => {
-  const message = ctx.message.text;
-  const tickers = getTickers(message);
+  const message = ctx.message.text
+  
+  //TEMP just for "forward" feature experimentation
+  //TODO limit forwarding to message with original chat id.
+  const isForwarded = !!ctx.message.forward_from
+  const author = isForwarded
+    ? ctx.message.forward_from?.username
+    : ctx.from.username
 
-  const author = ctx.from.username
+  if (!message || !author) {
+    return
+  }
+
+  const tickers = getTickers(message);
   const date = ctx.message.date
   const groupName = ctx.chat.type === 'group' || ctx.chat.type === 'supergroup' ? ctx.chat.title : 'PRIVATE_GROUP';
   const messageURL = `https://t.me/${groupName}/${ctx.message.message_id}`;
 
   for (const ticker of tickers) {
-    const collection = await getCollection(ctx.chat.id.toString())
+    const collection = await getCollection(collectionName/* ctx.chat.id.toString() */)
     const item = await collection.findOne({ ticker })
 
     if (item && author) {

@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.0.1-alpha.9](https://github.com/tortuga0x0000/wagmi/compare/v0.0.1-alpha.5...v0.0.1-alpha.9) (2023-11-17)
+
+
+### Features
+
+* support of forwarded messages ([a4e9b48](https://github.com/tortuga0x0000/wagmi/commit/a4e9b48ef4f772c115fc0239e2a79c2450075b3e))
+
+
+### Bug Fixes
+
+* auth fails ([46ada1f](https://github.com/tortuga0x0000/wagmi/commit/46ada1f98eb6ea80dd6b2b7ce34a4002462627dc))
+
 ### [0.0.1-alpha.8](https://github.com/tortuga0x0000/wagmi/compare/v0.0.1-alpha.5...v0.0.1-alpha.8) (2023-11-17)
 
 
