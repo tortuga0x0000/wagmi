@@ -1,6 +1,6 @@
 {
   "name": "wagmi",
-  "version": "0.0.1-alpha.6",
+  "version": "0.0.1-alpha.7",
   "description": "A Telegram bot which enhance your group research about a coin with AI.",
   "main": "dist/index.js",
   "files": [
@@ -8,8 +8,8 @@
   ],
   "scripts": {
     "build": "tsc",
-    "dev": "nodemon & tsc --watch",
-    "start": "node dist/index.js",
+    "dev": "tsc --watch",
+    "start": "nodemon dist/index.js",
     "deploy": "sh deploy.sh",
     "test": "jest"
   },
