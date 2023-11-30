@@ -15,9 +15,30 @@ export function getTickers(message: string) {
 export async function getTokenInfos(client: MongoClient, ticker: string) {
   const collection = await getCollection(client)
   // How many times it was shilled
-  const count = await collection.countDocuments({ticker: { $eq: ticker }} )
+
+  const project = await collection.findOne({ ticker })
+  
+  if (!project) {
+    return "No data"
+  }
+
+  const firstMessage = project.messages.sort((a, b) => a.date - b.date)[0]
+  const mostTalkative = project.shillers.reduce<Array<{shiller: string, count: number}>>(function(board, shiller) {
+    const row = board.find((row) => row.shiller === shiller)
+    if (row) {
+      row.count++
+    } else {
+      board.push({shiller, count: 1})
+    }
+    return board
+  }, [])
+  .sort((a, b) => b.count - a.count)[0].shiller
+
   return `Information for token: ${ticker}:
-  - shilled: ${count} times in the group
+  - shilled: ${project.messages.length} times in the group
+  - first shilled by: @${firstMessage.author}
+  - more talkative: @${mostTalkative}
+  - first message: ${firstMessage.url}
 `;
 }
 
