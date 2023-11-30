@@ -34,12 +34,19 @@ export async function getTokenInfos(client: MongoClient, ticker: string) {
   }, [])
     .sort((a, b) => b.count - a.count)[0].shiller
 
+  const date = addMs(project)
+
   return `Information for token: ${ticker}:
+  - last shilled: ${date.toLocaleDateString()} ${date.getHours()}:${date.getMinutes()}
   - shilled: ${project.messages.length} times in the group
   - first shilled by: @${firstMessage.author}
   - more talkative: @${mostTalkative}
   - first message: ${firstMessage.url}
 `;
+}
+
+function addMs(project: Data) {
+  return new Date(project.messages.at(-1)!.date * 1000);
 }
 
 /**
@@ -49,7 +56,7 @@ export async function createTokenButtons(client: MongoClient, { page, sortBy, or
   const collection = await getCollection(client)
   const noProject = await collection.countDocuments()
   const paginatedProjects = sortBy === SORTING.SHILL
-    ? await collection.aggregate([
+    ? await collection.aggregate<Data>([
       {
         $project: {
           ticker: 1,
@@ -74,7 +81,14 @@ export async function createTokenButtons(client: MongoClient, { page, sortBy, or
       .limit(TOKENS_PER_PAGE)
       .toArray()
 
-  const tokenButtons = paginatedProjects.map(project => Markup.button.callback(project.ticker, `info?ticker=${project.ticker}&page=${page}&sort_by=${sortBy}&order=${order}`));
+  const tokenButtons = paginatedProjects.map(function(project) {
+    const title = sortBy === SORTING.LAST_MENTION
+      ? `${project.ticker} (${getShilledTime(addMs(project))})`
+      : sortBy === SORTING.SHILL
+      ? `${project.ticker} (${project.messages.length}x)`
+      : project.ticker
+    return Markup.button.callback(title, `info?ticker=${project.ticker}&page=${page}&sort_by=${sortBy}&order=${order}`)
+  });
   const rows = []
   const btPerRow = 3
   const noRows = Math.ceil(tokenButtons.length / btPerRow)
@@ -137,4 +151,13 @@ export async function getCollection(client: MongoClient) {
 export function editMessageText(ctx: Context, text: string | FmtString, extra?: ExtraEditMessageText) {
   ctx.editMessageText(text, extra)
     .catch(e => console.error("SAME_MESSAGE", e))
+}
+
+export function getShilledTime(date: Date) {
+  const now = Date.now()
+  if (now - date.getTime() <= 24 * 3600 * 1000) {// if shilled today
+    // Display hour
+    return `${date.getHours()}:${date.getMinutes()}`
+  }
+  return '> 24h'
 }
