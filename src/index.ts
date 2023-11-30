@@ -96,8 +96,8 @@ bot.on(message('text'), async function(ctx) {
 
 function getNavParams(queryParams: URLSearchParams) {
   const page = Number(queryParams.get('page'));
-  const sortBy = queryParams.get('sort_by') as SORTING ?? SORTING.NAME;
-  const order = queryParams.get('order') as ORDER ?? ORDER.ASC;
+  const sortBy = queryParams.get('sort_by') as SORTING ?? SORTING.LAST_MENTION;
+  const order = queryParams.get('order') as ORDER ?? ORDER.DSC;
   return { page, sortBy, order };
 }
 

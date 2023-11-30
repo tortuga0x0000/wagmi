@@ -1,15 +1,15 @@
 import { MongoClient } from "mongodb";
 import { COLLECTION_NAME, DB_NAME, TOKENS_PER_PAGE } from "./constants";
-import { Data } from "./types";
+import { Data, ORDER, SORTING } from "./types";
 import { Context, Markup } from "telegraf";
 import { FmtString } from "telegraf/typings/format";
 import { ExtraEditMessageText } from "telegraf/typings/telegram-types";
 import { NavParams } from "./types";
 
 export function getTickers(message: string) {
-    const tickerRegex = /\$([a-zA-Z]+)|\b([A-Z]{2,})\b/g; // Regex pour détecter le ticker
-    const tickers = message.match(tickerRegex) ?? [];
-    return Array.from(tickers).map(ticker => ticker.replace('$', '').toUpperCase());
+  const tickerRegex = /\$([a-zA-Z]+)|\b([A-Z]{2,})\b/g; // Regex pour détecter le ticker
+  const tickers = message.match(tickerRegex) ?? [];
+  return Array.from(tickers).map(ticker => ticker.replace('$', '').toUpperCase());
 }
 
 export async function getTokenInfos(client: MongoClient, ticker: string) {
@@ -17,22 +17,22 @@ export async function getTokenInfos(client: MongoClient, ticker: string) {
   // How many times it was shilled
 
   const project = await collection.findOne({ ticker })
-  
+
   if (!project) {
     return "No data"
   }
 
   const firstMessage = project.messages.sort((a, b) => a.date - b.date)[0]
-  const mostTalkative = project.shillers.reduce<Array<{shiller: string, count: number}>>(function(board, shiller) {
+  const mostTalkative = project.shillers.reduce<Array<{ shiller: string, count: number }>>(function (board, shiller) {
     const row = board.find((row) => row.shiller === shiller)
     if (row) {
       row.count++
     } else {
-      board.push({shiller, count: 1})
+      board.push({ shiller, count: 1 })
     }
     return board
   }, [])
-  .sort((a, b) => b.count - a.count)[0].shiller
+    .sort((a, b) => b.count - a.count)[0].shiller
 
   return `Information for token: ${ticker}:
   - shilled: ${project.messages.length} times in the group
@@ -48,7 +48,31 @@ export async function getTokenInfos(client: MongoClient, ticker: string) {
 export async function createTokenButtons(client: MongoClient, { page, sortBy, order }: NavParams) {
   const collection = await getCollection(client)
   const noProject = await collection.countDocuments()
-  const paginatedProjects = await collection.find().skip(TOKENS_PER_PAGE * (page - 1)).limit(TOKENS_PER_PAGE).toArray()
+  const paginatedProjects = sortBy === SORTING.SHILL
+    ? await collection.aggregate([
+      {
+        $project: {
+          ticker: 1,
+          shillers: 1,
+          messages: 1,
+          numberOfMessages: { $size: "$messages" } // Calculer la taille du tableau messages
+        }
+      },
+      {
+        $sort: { numberOfMessages: -1 }
+      }
+    ]).skip(TOKENS_PER_PAGE * (page - 1))
+      .limit(TOKENS_PER_PAGE)
+      .toArray()
+
+    : await collection.find()
+      .sort(sortBy === SORTING.LAST_MENTION
+        ? { "messages.date": -1 }
+        : { ticker: order === ORDER.ASC ? 1 : -1 }
+      )
+      .skip(TOKENS_PER_PAGE * (page - 1))
+      .limit(TOKENS_PER_PAGE)
+      .toArray()
 
   const tokenButtons = paginatedProjects.map(project => Markup.button.callback(project.ticker, `info?ticker=${project.ticker}&page=${page}&sort_by=${sortBy}&order=${order}`));
   const rows = []
@@ -56,8 +80,8 @@ export async function createTokenButtons(client: MongoClient, { page, sortBy, or
   const noRows = Math.ceil(tokenButtons.length / btPerRow)
   for (let i = 0; i < noRows; i++) {
     const row = []
-    for (let j= 0; j < btPerRow; j++) {
-        row.push(tokenButtons[i*btPerRow + j] ?? Markup.button.callback(' ', 'noop'))
+    for (let j = 0; j < btPerRow; j++) {
+      row.push(tokenButtons[i * btPerRow + j] ?? Markup.button.callback(' ', 'noop'))
     }
     rows.push(row);
   }
@@ -67,10 +91,14 @@ export async function createTokenButtons(client: MongoClient, { page, sortBy, or
   const nav = []
   if (totalPages > 1) {
     if (page > 1) {
-      nav.push(Markup.button.callback('« Prev', `token_list?page=${page - 1}`));
+      nav.push(Markup.button.callback('« Prev', `token_list?page=${page - 1}&sort_by=${sortBy}&order=${order}`));
+    } else {
+      nav.push(Markup.button.callback(' ', 'noop'))
     }
-    if( page < totalPages) {
-      nav.push(Markup.button.callback('Next »', `token_list?page=${page + 1}`));
+    if (page < totalPages) {
+      nav.push(Markup.button.callback('Next »', `token_list?page=${page + 1}&sort_by=${sortBy}&order=${order}`));
+    } else {
+      nav.push(Markup.button.callback(' ', 'noop'))
     }
   }
 
@@ -78,33 +106,35 @@ export async function createTokenButtons(client: MongoClient, { page, sortBy, or
 
   // Add sorting buttons
   rows.push([
-    Markup.button.callback("Last shilled first", `token_list?page=${page}`)
+    Markup.button.callback("Last shilled first", `token_list?page=${page}&sort_by=${SORTING.SHILL}&order=${ORDER.DSC}`),
+    Markup.button.callback("Recent first", `token_list?page=${page}&sort_by=${SORTING.LAST_MENTION}&order=${ORDER.ASC}`),
+    Markup.button.callback("Alphabetical", `token_list?page=${page}&sort_by=${SORTING.NAME}&order=${ORDER.ASC}`),
   ])
 
   return Markup.inlineKeyboard(rows);
 };
 
 export async function getCollection(client: MongoClient) {
-    const db = client.db(DB_NAME);
-    const hasCollection = (await db.listCollections({}, { nameOnly: true }).toArray())
-      .some(c => c.name === COLLECTION_NAME)
-  
-    // Check if the collection exists and create it with the schema if it doesn't
-    if (!hasCollection) {
-      const newCollection = await db.createCollection<Data>(COLLECTION_NAME/* , {
+  const db = client.db(DB_NAME);
+  const hasCollection = (await db.listCollections({}, { nameOnly: true }).toArray())
+    .some(c => c.name === COLLECTION_NAME)
+
+  // Check if the collection exists and create it with the schema if it doesn't
+  if (!hasCollection) {
+    const newCollection = await db.createCollection<Data>(COLLECTION_NAME/* , {
         validator: dataSchema
       } */);
-      console.log(`Collection ${COLLECTION_NAME} created with schema validation`);
-      return newCollection
-    } else {
-      return db.collection<Data>(COLLECTION_NAME)
-    }
+    console.log(`Collection ${COLLECTION_NAME} created with schema validation`);
+    return newCollection
+  } else {
+    return db.collection<Data>(COLLECTION_NAME)
   }
+}
 
-  /**
-   * Swallow the error if this is caused by "message is not modified" or propage the error otherwise
-   */
-  export function editMessageText(ctx: Context, text: string | FmtString, extra?: ExtraEditMessageText) {
-    ctx.editMessageText(text, extra)
-      .catch(e => console.error("SAME_MESSAGE", e))
-  }
+/**
+ * Swallow the error if this is caused by "message is not modified" or propage the error otherwise
+ */
+export function editMessageText(ctx: Context, text: string | FmtString, extra?: ExtraEditMessageText) {
+  ctx.editMessageText(text, extra)
+    .catch(e => console.error("SAME_MESSAGE", e))
+}
