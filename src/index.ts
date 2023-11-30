@@ -20,8 +20,8 @@ const bot = new Telegraf(process.env.TG_BOT_ID!);
 
 // Command to list all tokens
 bot.command('list', async function(ctx) {
-  const buttons = await createTokenButtons(client);
-  ctx.reply('Select a token:', Markup.inlineKeyboard(buttons));
+  const buttons = await createTokenButtons(client, 1);
+  ctx.reply('Select a token:', buttons);
 });
 
 // Handling callback queries
@@ -33,10 +33,12 @@ bot.action(/info_.+/, async function(ctx) {
   );
 });
 
-bot.action("back_to_list", async function(ctx) {
-  const buttons = await createTokenButtons(client);
-  ctx.editMessageText('Select a token:', Markup.inlineKeyboard(buttons))
-})
+// Handling pagination
+bot.action(/token_list_page_\d+/, async (ctx) => {
+  const page = Number(ctx.match[0].split('_').at(-1));
+  const markup = await createTokenButtons(client, page);
+  ctx.editMessageText('Select a token:', markup);
+});
 
 // WARNING: always declare this handler last otherwise it will swallow the bot commands
 bot.on(message('text'), async function(ctx) {

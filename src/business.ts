@@ -1,7 +1,6 @@
 import { MongoClient } from "mongodb";
-import { COLLECTION_NAME, DB_NAME } from "./constants";
+import { COLLECTION_NAME, DB_NAME, TOKENS_PER_PAGE } from "./constants";
 import { Data } from "./types";
-import { InlineKeyboardButton } from "telegraf/typings/core/types/typegram";
 import { Markup } from "telegraf";
 
 export function getTickers(message: string) {
@@ -15,16 +14,32 @@ export async function getTokenInfos(client: MongoClient, ticker: string) {
   // How many times it was shilled
   const count = await collection.countDocuments({ticker: { $eq: ticker }} )
   return `Information for token: ${ticker}:
-  - shilled: ${count} times
+  - shilled: ${count} times in the group
 `;
 }
 
 /**
  * Helper function to create inline keyboard buttons for tokens
  */
-export async function createTokenButtons(client: MongoClient): Promise<InlineKeyboardButton[]> {
+export async function createTokenButtons(client: MongoClient, currentPage: number) {
   const collection = await getCollection(client)
-  return collection.find().map(project => Markup.button.callback(project.ticker, `info_${project.ticker}`)).toArray();
+  const noProject = await collection.countDocuments()
+  const paginatedProjects = await collection.find().skip(TOKENS_PER_PAGE * (currentPage - 1)).limit(TOKENS_PER_PAGE).toArray()
+
+  const buttons = paginatedProjects.map(project => Markup.button.callback(project.ticker, `info_${project.ticker}`));
+
+  // Add navigation buttons if needed
+  const totalPages = Math.ceil(noProject / TOKENS_PER_PAGE);
+  if (totalPages > 1) {
+    if (currentPage > 1) {
+      buttons.push(Markup.button.callback('« Prev', `token_list_page_${currentPage - 1}`));
+    }
+    if( currentPage < totalPages) {
+      buttons.push(Markup.button.callback('Next »', `token_list_page_${currentPage + 1}`));
+    }
+  }
+
+  return Markup.inlineKeyboard(buttons);
 };
 
 export async function getCollection(client: MongoClient) {
