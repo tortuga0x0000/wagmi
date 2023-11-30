@@ -1,7 +1,7 @@
 import * as dotenv from 'dotenv'
 import { MongoClient } from 'mongodb';
-import { Telegraf } from 'telegraf'
-import { getCollection, getTickers } from './business';
+import { Markup, Telegraf } from 'telegraf'
+import { createTokenButtons, getCollection, getTickers } from './business';
 import { DB_NAME } from './constants';
 
 dotenv.config(process.env.NODE_ENV === "production" ? { path: __dirname + '/.env' } : undefined);
@@ -17,7 +17,25 @@ const client = new MongoClient(url);
 
 const bot = new Telegraf(process.env.TG_BOT_ID!);
 
+// Command to list all tokens
+bot.command('list', async (ctx) => {
+  const buttons = await createTokenButtons(client);
+  ctx.reply('Select a token:', Markup.inlineKeyboard(buttons));
+});
+
+// Handling callback queries
+bot.action(/info_.+/, async (ctx) => {
+  const tokenName = ctx.match[0].split('_')[1];
+  // Perform action, e.g., send token information
+  ctx.reply(`Information for token: ${tokenName}`);
+});
+
+// WARNING: always declare this handler last otherwise it will swallow the bot commands
 bot.on('text', async (ctx) => {
+  // Check if the message is a command and skip processing if it is
+  if (ctx.message.text.startsWith('/')) {
+    return;
+  }
   const message = ctx.message.text
   
   //TEMP just for "forward" feature experimentation
