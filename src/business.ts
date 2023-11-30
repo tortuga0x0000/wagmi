@@ -10,6 +10,14 @@ export function getTickers(message: string) {
     return Array.from(tickers).map(ticker => ticker.replace('$', '').toUpperCase());
 }
 
+export async function getTokenInfos(client: MongoClient, ticker: string) {
+  const collection = await getCollection(client)
+  // How many times it was shilled
+  const count = await collection.countDocuments({ticker: { $eq: ticker }} )
+  return `Information for token: ${ticker}:
+  - shilled: ${count} times
+`;
+}
 
 /**
  * Helper function to create inline keyboard buttons for tokens

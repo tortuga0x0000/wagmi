@@ -1,7 +1,8 @@
 import * as dotenv from 'dotenv'
 import { MongoClient } from 'mongodb';
 import { Markup, Telegraf } from 'telegraf'
-import { createTokenButtons, getCollection, getTickers } from './business';
+import { message } from 'telegraf/filters'
+import { createTokenButtons, getCollection, getTickers, getTokenInfos } from './business';
 import { DB_NAME } from './constants';
 
 dotenv.config(process.env.NODE_ENV === "production" ? { path: __dirname + '/.env' } : undefined);
@@ -18,20 +19,27 @@ const client = new MongoClient(url);
 const bot = new Telegraf(process.env.TG_BOT_ID!);
 
 // Command to list all tokens
-bot.command('list', async (ctx) => {
+bot.command('list', async function(ctx) {
   const buttons = await createTokenButtons(client);
   ctx.reply('Select a token:', Markup.inlineKeyboard(buttons));
 });
 
 // Handling callback queries
-bot.action(/info_.+/, async (ctx) => {
-  const tokenName = ctx.match[0].split('_')[1];
-  // Perform action, e.g., send token information
-  ctx.reply(`Information for token: ${tokenName}`);
+bot.action(/info_.+/, async function(ctx) {
+  const ticker = ctx.match[0].split('_')[1];
+  ctx.editMessageText(
+    await getTokenInfos(client, ticker),
+    Markup.inlineKeyboard([Markup.button.callback('Back to List', 'back_to_list')])
+  );
 });
 
+bot.action("back_to_list", async function(ctx) {
+  const buttons = await createTokenButtons(client);
+  ctx.editMessageText('Select a token:', Markup.inlineKeyboard(buttons))
+})
+
 // WARNING: always declare this handler last otherwise it will swallow the bot commands
-bot.on('text', async (ctx) => {
+bot.on(message('text'), async function(ctx) {
   // Check if the message is a command and skip processing if it is
   if (ctx.message.text.startsWith('/')) {
     return;
