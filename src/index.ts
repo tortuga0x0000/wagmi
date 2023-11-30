@@ -2,8 +2,9 @@ import * as dotenv from 'dotenv'
 import { MongoClient } from 'mongodb';
 import { Markup, Telegraf } from 'telegraf'
 import { message } from 'telegraf/filters'
-import { createTokenButtons, getCollection, getTickers, getTokenInfos } from './business';
+import { createTokenButtons, editMessageText, getCollection, getTickers, getTokenInfos } from './business';
 import { DB_NAME } from './constants';
+import { SORTING, ORDER } from './types';
 
 dotenv.config(process.env.NODE_ENV === "production" ? { path: __dirname + '/.env' } : undefined);
 
@@ -20,24 +21,34 @@ const bot = new Telegraf(process.env.TG_BOT_ID!);
 
 // Command to list all tokens
 bot.command('list', async function(ctx) {
-  const buttons = await createTokenButtons(client, 1);
+  const buttons = await createTokenButtons(client, {page: 1, sortBy: SORTING.NAME, order: ORDER.ASC});
   ctx.reply('Select a token:', buttons);
 });
 
 // Handling callback queries
-bot.action(/info_.+/, async function(ctx) {
-  const ticker = ctx.match[0].split('_')[1];
-  ctx.editMessageText(
-    await getTokenInfos(client, ticker),
-    Markup.inlineKeyboard([Markup.button.callback('Back to List', 'back_to_list')])
-  );
+bot.action(/(info\?)(.+)/, async function(ctx) {
+  // Parse the query payload
+  const queryParams = new URLSearchParams(ctx.match[2])
+  const { page, sortBy, order } = getNavParams(queryParams);
+
+  const ticker = queryParams.get('ticker');
+  if (ticker) {
+    editMessageText(
+      ctx,
+      await getTokenInfos(client, ticker),
+      Markup.inlineKeyboard([Markup.button.callback('Back to List', `token_list?page=${page}&sort_by=${sortBy}&order=${order}`)])
+    );
+  }
 });
 
 // Handling pagination
-bot.action(/token_list_page_\d+/, async (ctx) => {
-  const page = Number(ctx.match[0].split('_').at(-1));
-  const markup = await createTokenButtons(client, page);
-  ctx.editMessageText('Select a token:', markup);
+bot.action(/(token_list\?)(.+)/, async (ctx) => {
+  // Parse the query payload
+  const queryParams = new URLSearchParams(ctx.match[2])
+
+  const { page, sortBy, order } = getNavParams(queryParams);
+  const markup = await createTokenButtons(client, { page, sortBy, order });
+  editMessageText(ctx, 'Select a token:', markup);
 });
 
 // WARNING: always declare this handler last otherwise it will swallow the bot commands
@@ -82,6 +93,13 @@ bot.on(message('text'), async function(ctx) {
     }
   }
 });
+
+function getNavParams(queryParams: URLSearchParams) {
+  const page = Number(queryParams.get('page'));
+  const sortBy = queryParams.get('sort_by') as SORTING ?? SORTING.NAME;
+  const order = queryParams.get('order') as ORDER ?? ORDER.ASC;
+  return { page, sortBy, order };
+}
 
 async function main() {
   await client.connect();

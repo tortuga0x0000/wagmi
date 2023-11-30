@@ -1,7 +1,10 @@
 import { MongoClient } from "mongodb";
 import { COLLECTION_NAME, DB_NAME, TOKENS_PER_PAGE } from "./constants";
 import { Data } from "./types";
-import { Markup } from "telegraf";
+import { Context, Markup } from "telegraf";
+import { FmtString } from "telegraf/typings/format";
+import { ExtraEditMessageText } from "telegraf/typings/telegram-types";
+import { NavParams } from "./types";
 
 export function getTickers(message: string) {
     const tickerRegex = /\$([a-zA-Z]+)|\b([A-Z]{2,})\b/g; // Regex pour détecter le ticker
@@ -21,25 +24,43 @@ export async function getTokenInfos(client: MongoClient, ticker: string) {
 /**
  * Helper function to create inline keyboard buttons for tokens
  */
-export async function createTokenButtons(client: MongoClient, currentPage: number) {
+export async function createTokenButtons(client: MongoClient, { page, sortBy, order }: NavParams) {
   const collection = await getCollection(client)
   const noProject = await collection.countDocuments()
-  const paginatedProjects = await collection.find().skip(TOKENS_PER_PAGE * (currentPage - 1)).limit(TOKENS_PER_PAGE).toArray()
+  const paginatedProjects = await collection.find().skip(TOKENS_PER_PAGE * (page - 1)).limit(TOKENS_PER_PAGE).toArray()
 
-  const buttons = paginatedProjects.map(project => Markup.button.callback(project.ticker, `info_${project.ticker}`));
+  const tokenButtons = paginatedProjects.map(project => Markup.button.callback(project.ticker, `info?ticker=${project.ticker}&page=${page}&sort_by=${sortBy}&order=${order}`));
+  const rows = []
+  const btPerRow = 3
+  const noRows = Math.ceil(tokenButtons.length / btPerRow)
+  for (let i = 0; i < noRows; i++) {
+    const row = []
+    for (let j= 0; j < btPerRow; j++) {
+        row.push(tokenButtons[i*btPerRow + j] ?? Markup.button.callback(' ', 'noop'))
+    }
+    rows.push(row);
+  }
 
   // Add navigation buttons if needed
   const totalPages = Math.ceil(noProject / TOKENS_PER_PAGE);
+  const nav = []
   if (totalPages > 1) {
-    if (currentPage > 1) {
-      buttons.push(Markup.button.callback('« Prev', `token_list_page_${currentPage - 1}`));
+    if (page > 1) {
+      nav.push(Markup.button.callback('« Prev', `token_list?page=${page - 1}`));
     }
-    if( currentPage < totalPages) {
-      buttons.push(Markup.button.callback('Next »', `token_list_page_${currentPage + 1}`));
+    if( page < totalPages) {
+      nav.push(Markup.button.callback('Next »', `token_list?page=${page + 1}`));
     }
   }
 
-  return Markup.inlineKeyboard(buttons);
+  rows.push(nav)
+
+  // Add sorting buttons
+  rows.push([
+    Markup.button.callback("Last shilled first", `token_list?page=${page}`)
+  ])
+
+  return Markup.inlineKeyboard(rows);
 };
 
 export async function getCollection(client: MongoClient) {
@@ -57,4 +78,12 @@ export async function getCollection(client: MongoClient) {
     } else {
       return db.collection<Data>(COLLECTION_NAME)
     }
+  }
+
+  /**
+   * Swallow the error if this is caused by "message is not modified" or propage the error otherwise
+   */
+  export function editMessageText(ctx: Context, text: string | FmtString, extra?: ExtraEditMessageText) {
+    ctx.editMessageText(text, extra)
+      .catch(e => console.error("SAME_MESSAGE", e))
   }
