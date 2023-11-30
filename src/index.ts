@@ -1,20 +1,17 @@
 import * as dotenv from 'dotenv'
 import { MongoClient } from 'mongodb';
 import { Telegraf } from 'telegraf'
-import { Data } from './types'
-import { getTickers } from './business';
+import { getCollection, getTickers } from './business';
+import { DB_NAME } from './constants';
 
 dotenv.config(process.env.NODE_ENV === "production" ? { path: __dirname + '/.env' } : undefined);
 
 // Connection URL with username and password
 const username = process.env.DB_USER && encodeURIComponent(process.env.DB_USER);
 const password = process.env.DB_PWD && encodeURIComponent(process.env.DB_PWD);
-const dbName = 'wagmi';
-//TEMP just for "forward" feature experimentation
-const collectionName = "data"
 
 // Connection URL
-const url = `mongodb://${username}:${password}@localhost:27017/${dbName}?authSource=${dbName}`
+const url = `mongodb://${username}:${password}@localhost:27017/${DB_NAME}?authSource=${DB_NAME}`
 
 const client = new MongoClient(url);
 
@@ -40,7 +37,7 @@ bot.on('text', async (ctx) => {
   const messageURL = `https://t.me/${groupName}/${ctx.message.message_id}`;
 
   for (const ticker of tickers) {
-    const collection = await getCollection(collectionName/* ctx.chat.id.toString() */)
+    const collection = await getCollection(client)
     const item = await collection.findOne({ ticker })
 
     if (item && author) {
@@ -57,23 +54,6 @@ bot.on('text', async (ctx) => {
     }
   }
 });
-
-async function getCollection(collectionName: string) {
-  const db = client.db(dbName);
-  const hasCollection = (await db.listCollections({}, { nameOnly: true }).toArray())
-    .some(c => c.name === collectionName)
-
-  // Check if the collection exists and create it with the schema if it doesn't
-  if (!hasCollection) {
-    const newCollection = await db.createCollection<Data>(collectionName/* , {
-      validator: dataSchema
-    } */);
-    console.log(`Collection ${collectionName} created with schema validation`);
-    return newCollection
-  } else {
-    return db.collection<Data>(collectionName)
-  }
-}
 
 async function main() {
   await client.connect();
