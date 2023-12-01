@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.0.1-alpha.11](https://github.com/tortuga0x0000/wagmi/compare/v0.0.1-alpha.5...v0.0.1-alpha.11) (2023-12-01)
+
+
+### Features
+
+* add basic info ([f1d2000](https://github.com/tortuga0x0000/wagmi/commit/f1d20001974a2c350e020eb00cfdfc5f6d43962a))
+* add token info view ([b12f802](https://github.com/tortuga0x0000/wagmi/commit/b12f802fb97b6a5051e5750601b01e496e4d098f))
+* back button returns to previous state ([d014298](https://github.com/tortuga0x0000/wagmi/commit/d01429844083f6bfae6c52b7313db070593f2c44))
+* display current page ([92b26ab](https://github.com/tortuga0x0000/wagmi/commit/92b26ab9874d7ebd4a86f475e6d5ae2f75ed3a44))
+* list all tokens ([07a5d56](https://github.com/tortuga0x0000/wagmi/commit/07a5d560ab2f4100ab816f1253c454cb77ebb949))
+* pagination ([0463390](https://github.com/tortuga0x0000/wagmi/commit/0463390685aa67f944ea4964a5bc56e3a1d38f54))
+* sorting ([198464a](https://github.com/tortuga0x0000/wagmi/commit/198464af87d6949aba31bc712df6dd9123860b85))
+* support of forwarded messages ([a4e9b48](https://github.com/tortuga0x0000/wagmi/commit/a4e9b48ef4f772c115fc0239e2a79c2450075b3e))
+
+
+### Bug Fixes
+
+* auth fails ([46ada1f](https://github.com/tortuga0x0000/wagmi/commit/46ada1f98eb6ea80dd6b2b7ce34a4002462627dc))
+* does not capture token with digit ([f88d49d](https://github.com/tortuga0x0000/wagmi/commit/f88d49d4e831975c3e51666d8afda4f17f472fdf))
+* message URL ([045c852](https://github.com/tortuga0x0000/wagmi/commit/045c852c3897e4988b7d79803f283cf9596c8fa5))
+* page number ([b7ddb02](https://github.com/tortuga0x0000/wagmi/commit/b7ddb027c7ebc641b886564c15759a4d647d97ee))
+* time format ([4f44f33](https://github.com/tortuga0x0000/wagmi/commit/4f44f334e0d631f440e2c1170633d5c3a16f2526))
+* typo ([3077017](https://github.com/tortuga0x0000/wagmi/commit/3077017c25e74dd8d000d4a531e073117f7f2b55))
+
 ### [0.0.1-alpha.10](https://github.com/tortuga0x0000/wagmi/compare/v0.0.1-alpha.5...v0.0.1-alpha.10) (2023-12-01)
 
 
