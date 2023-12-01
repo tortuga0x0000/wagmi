@@ -37,7 +37,7 @@ export async function getTokenInfos(client: MongoClient, ticker: string) {
   const date = addMs(project)
 
   return `Information for token: ${ticker}:
-  - last shilled: ${date.toLocaleDateString()} ${date.getHours()}:${date.getMinutes()}
+  - last shilled: ${date.toLocaleDateString()} ${date.toLocaleTimeString()}
   - shilled: ${project.messages.length} times in the group
   - first shilled by: @${firstMessage.author}
   - more talkative: @${mostTalkative}
@@ -157,7 +157,7 @@ export function getShilledTime(date: Date) {
   const now = Date.now()
   if (now - date.getTime() <= 24 * 3600 * 1000) {// if shilled today
     // Display hour
-    return `${date.getHours()}:${date.getMinutes()}`
+    return date.toLocaleTimeString()
   }
   return '> 24h'
 }
