@@ -169,3 +169,14 @@ export function getShilledTime(date: Date) {
   }
   return '> 24h'
 }
+
+export function getMessageURL(ctx: Context) {
+  if (ctx.chat?.type === 'group') {
+    return `https://t.me/${ctx.chat.type}/${ctx.message?.message_id}`;
+  }
+  if (ctx.chat?.type === 'supergroup') {
+    return `https://t.me/c/${ctx.chat.id.toString().slice(4)}/${ctx.message?.message_id}`;
+  }
+
+  return '';
+}
