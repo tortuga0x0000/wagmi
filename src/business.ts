@@ -162,7 +162,10 @@ export function getShilledTime(date: Date) {
   const now = Date.now()
   if (now - date.getTime() <= 24 * 3600 * 1000) {// if shilled today
     // Display hour
-    return date.toLocaleTimeString()
+    return date.toLocaleTimeString(undefined, {
+      hour: '2-digit',
+      minute: '2-digit',
+  })
   }
   return '> 24h'
 }
