@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.0.1-alpha.12](https://github.com/tortuga0x0000/wagmi/compare/v0.0.1-alpha.5...v0.0.1-alpha.12) (2023-12-01)
+
+
+### Features
+
+* display current page ([92b26ab](https://github.com/tortuga0x0000/wagmi/commit/92b26ab9874d7ebd4a86f475e6d5ae2f75ed3a44))
+
+
+### Bug Fixes
+
+* auth fails ([46ada1f](https://github.com/tortuga0x0000/wagmi/commit/46ada1f98eb6ea80dd6b2b7ce34a4002462627dc))
+* can call command in group ([45f3255](https://github.com/tortuga0x0000/wagmi/commit/45f325566175f9a5c108f0ce299759af4b52b904))
+* does not capture token with digit ([f88d49d](https://github.com/tortuga0x0000/wagmi/commit/f88d49d4e831975c3e51666d8afda4f17f472fdf))
+* message URL ([045c852](https://github.com/tortuga0x0000/wagmi/commit/045c852c3897e4988b7d79803f283cf9596c8fa5))
+* page number ([b7ddb02](https://github.com/tortuga0x0000/wagmi/commit/b7ddb027c7ebc641b886564c15759a4d647d97ee))
+* time format ([4f44f33](https://github.com/tortuga0x0000/wagmi/commit/4f44f334e0d631f440e2c1170633d5c3a16f2526))
+* typo ([6104320](https://github.com/tortuga0x0000/wagmi/commit/61043203826c6960b31bc481928c479ce28eddd1))
+* typo ([3077017](https://github.com/tortuga0x0000/wagmi/commit/3077017c25e74dd8d000d4a531e073117f7f2b55))
+
 ### [0.0.1-alpha.11](https://github.com/tortuga0x0000/wagmi/compare/v0.0.1-alpha.5...v0.0.1-alpha.11) (2023-12-01)
 
 
