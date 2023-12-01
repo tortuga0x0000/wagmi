@@ -100,6 +100,11 @@ export async function createTokenButtons(client: MongoClient, { page, sortBy, or
     rows.push(row);
   }
 
+  // Add the page number
+  const noPages = Math.ceil((await collection.countDocuments())/ TOKENS_PER_PAGE)
+  // Add a false button
+  rows.push([Markup.button.callback(`${page+1}/${noPages}`, 'noop')])
+
   // Add navigation buttons if needed
   const totalPages = Math.ceil(noProject / TOKENS_PER_PAGE);
   const nav = []
