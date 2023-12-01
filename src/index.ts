@@ -21,7 +21,7 @@ const bot = new Telegraf(process.env.TG_BOT_ID!);
 
 // Command to list all tokens
 bot.command('list', async function(ctx) {
-  const buttons = await createTokenButtons(client, {page: 1, sortBy: SORTING.NAME, order: ORDER.ASC});
+  const buttons = await createTokenButtons(client, {page: 1, sortBy: SORTING.LAST_MENTION, order: ORDER.DSC});
   ctx.reply('Select a token:', buttons);
 });
 
