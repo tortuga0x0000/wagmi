@@ -97,6 +97,10 @@ bot.on(message('text'), async function(ctx) {
   }
 });
 
+bot.catch((err, ctx) => {
+  console.error(`Error for ${ctx.updateType}`, err);
+});
+
 function getNavParams(queryParams: URLSearchParams) {
   const page = Number(queryParams.get('page'));
   const sortBy = queryParams.get('sort_by') as SORTING ?? SORTING.LAST_MENTION;
