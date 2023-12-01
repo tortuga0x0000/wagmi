@@ -1,26 +1,62 @@
 import * as dotenv from 'dotenv'
 import { MongoClient } from 'mongodb';
-import { Telegraf } from 'telegraf'
-import { Data } from './types'
-import { getTickers } from './business';
+import { Markup, Telegraf } from 'telegraf'
+import { message } from 'telegraf/filters'
+import { createTokenButtons, editMessageText, getCollection, getTickers, getTokenInfos } from './business';
+import { DB_NAME } from './constants';
+import { SORTING, ORDER } from './types';
 
 dotenv.config(process.env.NODE_ENV === "production" ? { path: __dirname + '/.env' } : undefined);
 
 // Connection URL with username and password
 const username = process.env.DB_USER && encodeURIComponent(process.env.DB_USER);
 const password = process.env.DB_PWD && encodeURIComponent(process.env.DB_PWD);
-const dbName = 'wagmi';
-//TEMP just for "forward" feature experimentation
-const collectionName = "data"
 
 // Connection URL
-const url = `mongodb://${username}:${password}@localhost:27017/${dbName}?authSource=${dbName}`
+const url = `mongodb://${username}:${password}@localhost:27017/${DB_NAME}?authSource=${DB_NAME}`
 
 const client = new MongoClient(url);
 
 const bot = new Telegraf(process.env.TG_BOT_ID!);
 
-bot.on('text', async (ctx) => {
+// Command to list all tokens
+bot.command('list', async function(ctx) {
+  const buttons = await createTokenButtons(client, {page: 1, sortBy: SORTING.NAME, order: ORDER.ASC});
+  ctx.reply('Select a token:', buttons);
+});
+
+// Handling callback queries
+bot.action(/(info\?)(.+)/, async function(ctx) {
+  // Parse the query payload
+  const queryParams = new URLSearchParams(ctx.match[2])
+  const { page, sortBy, order } = getNavParams(queryParams);
+
+  const ticker = queryParams.get('ticker');
+  if (ticker) {
+    editMessageText(
+      ctx,
+      await getTokenInfos(client, ticker),
+      Markup.inlineKeyboard([Markup.button.callback('Back to List', `token_list?page=${page}&sort_by=${sortBy}&order=${order}`)])
+    );
+  }
+});
+
+// Handling pagination
+bot.action(/(token_list\?)(.+)/, async (ctx) => {
+  // Parse the query payload
+  const queryParams = new URLSearchParams(ctx.match[2])
+
+  const { page, sortBy, order } = getNavParams(queryParams);
+  const markup = await createTokenButtons(client, { page, sortBy, order });
+  editMessageText(ctx, 'Select a token:', markup);
+});
+
+// WARNING: always declare this handler last otherwise it will swallow the bot commands
+bot.on(message('text'), async function(ctx) {
+  // Check if the message is a command and skip processing if it is
+  if (ctx.message.text.startsWith('/')) {
+    return;
+  }
   const message = ctx.message.text
   
   //TEMP just for "forward" feature experimentation
@@ -40,7 +76,7 @@ bot.on('text', async (ctx) => {
   const messageURL = `https://t.me/${groupName}/${ctx.message.message_id}`;
 
   for (const ticker of tickers) {
-    const collection = await getCollection(collectionName/* ctx.chat.id.toString() */)
+    const collection = await getCollection(client)
     const item = await collection.findOne({ ticker })
 
     if (item && author) {
@@ -58,21 +94,11 @@ bot.on('text', async (ctx) => {
   }
 });
 
-async function getCollection(collectionName: string) {
-  const db = client.db(dbName);
-  const hasCollection = (await db.listCollections({}, { nameOnly: true }).toArray())
-    .some(c => c.name === collectionName)
-
-  // Check if the collection exists and create it with the schema if it doesn't
-  if (!hasCollection) {
-    const newCollection = await db.createCollection<Data>(collectionName/* , {
-      validator: dataSchema
-    } */);
-    console.log(`Collection ${collectionName} created with schema validation`);
-    return newCollection
-  } else {
-    return db.collection<Data>(collectionName)
-  }
+function getNavParams(queryParams: URLSearchParams) {
+  const page = Number(queryParams.get('page'));
+  const sortBy = queryParams.get('sort_by') as SORTING ?? SORTING.LAST_MENTION;
+  const order = queryParams.get('order') as ORDER ?? ORDER.DSC;
+  return { page, sortBy, order };
 }
 
 async function main() {
