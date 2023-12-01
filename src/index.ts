@@ -2,7 +2,7 @@ import * as dotenv from 'dotenv'
 import { MongoClient } from 'mongodb';
 import { Markup, Telegraf } from 'telegraf'
 import { message } from 'telegraf/filters'
-import { createTokenButtons, editMessageText, getCollection, getTickers, getTokenInfos } from './business';
+import { createTokenButtons, editMessageText, getCollection, getMessageURL, getTickers, getTokenInfos } from './business';
 import { DB_NAME } from './constants';
 import { SORTING, ORDER } from './types';
 
@@ -21,7 +21,7 @@ const bot = new Telegraf(process.env.TG_BOT_ID!);
 
 // Command to list all tokens
 bot.command('list', async function(ctx) {
-  const buttons = await createTokenButtons(client, {page: 1, sortBy: SORTING.NAME, order: ORDER.ASC});
+  const buttons = await createTokenButtons(client, {page: 1, sortBy: SORTING.LAST_MENTION, order: ORDER.DSC});
   ctx.reply('Select a token:', buttons);
 });
 
@@ -72,9 +72,8 @@ bot.on(message('text'), async function(ctx) {
 
   const tickers = getTickers(message);
   const date = ctx.message.date
-  const groupName = ctx.chat.type === 'group' || ctx.chat.type === 'supergroup' ? ctx.chat.title : 'PRIVATE_GROUP';
-  const messageURL = `https://t.me/${groupName}/${ctx.message.message_id}`;
-
+  const messageURL = getMessageURL(ctx)
+  
   for (const ticker of tickers) {
     const collection = await getCollection(client)
     const item = await collection.findOne({ ticker })

@@ -7,7 +7,7 @@ import { ExtraEditMessageText } from "telegraf/typings/telegram-types";
 import { NavParams } from "./types";
 
 export function getTickers(message: string) {
-  const tickerRegex = /\$([a-zA-Z]+)|\b([A-Z]{2,})\b/g; // Regex pour détecter le ticker
+  const tickerRegex = /\$([a-zA-Z\d]+)|\b([A-Z\d]{2,})\b/g; // Regex pour détecter le ticker
   const tickers = message.match(tickerRegex) ?? [];
   return Array.from(tickers).map(ticker => ticker.replace('$', '').toUpperCase());
 }
@@ -37,7 +37,7 @@ export async function getTokenInfos(client: MongoClient, ticker: string) {
   const date = addMs(project)
 
   return `Information for token: ${ticker}:
-  - last shilled: ${date.toLocaleDateString()} ${date.getHours()}:${date.getMinutes()}
+  - last shilled: ${date.toLocaleDateString()} ${date.toLocaleTimeString()}
   - shilled: ${project.messages.length} times in the group
   - first shilled by: @${firstMessage.author}
   - more talkative: @${mostTalkative}
@@ -100,6 +100,11 @@ export async function createTokenButtons(client: MongoClient, { page, sortBy, or
     rows.push(row);
   }
 
+  // Add the page number
+  const noPages = Math.ceil((await collection.countDocuments())/ TOKENS_PER_PAGE)
+  // Add a false button
+  rows.push([Markup.button.callback(`${page}/${noPages}`, 'noop')])
+
   // Add navigation buttons if needed
   const totalPages = Math.ceil(noProject / TOKENS_PER_PAGE);
   const nav = []
@@ -120,7 +125,7 @@ export async function createTokenButtons(client: MongoClient, { page, sortBy, or
 
   // Add sorting buttons
   rows.push([
-    Markup.button.callback("Last shilled first", `token_list?page=${page}&sort_by=${SORTING.SHILL}&order=${ORDER.DSC}`),
+    Markup.button.callback("Most shilled", `token_list?page=${page}&sort_by=${SORTING.SHILL}&order=${ORDER.DSC}`),
     Markup.button.callback("Recent first", `token_list?page=${page}&sort_by=${SORTING.LAST_MENTION}&order=${ORDER.ASC}`),
     Markup.button.callback("Alphabetical", `token_list?page=${page}&sort_by=${SORTING.NAME}&order=${ORDER.ASC}`),
   ])
@@ -157,7 +162,21 @@ export function getShilledTime(date: Date) {
   const now = Date.now()
   if (now - date.getTime() <= 24 * 3600 * 1000) {// if shilled today
     // Display hour
-    return `${date.getHours()}:${date.getMinutes()}`
+    return date.toLocaleTimeString(undefined, {
+      hour: '2-digit',
+      minute: '2-digit',
+  })
   }
   return '> 24h'
+}
+
+export function getMessageURL(ctx: Context) {
+  if (ctx.chat?.type === 'group') {
+    return `https://t.me/${ctx.chat.type}/${ctx.message?.message_id}`;
+  }
+  if (ctx.chat?.type === 'supergroup') {
+    return `https://t.me/c/${ctx.chat.id.toString().slice(4)}/${ctx.message?.message_id}`;
+  }
+
+  return '';
 }
