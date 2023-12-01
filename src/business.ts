@@ -125,7 +125,7 @@ export async function createTokenButtons(client: MongoClient, { page, sortBy, or
 
   // Add sorting buttons
   rows.push([
-    Markup.button.callback("Last shilled first", `token_list?page=${page}&sort_by=${SORTING.SHILL}&order=${ORDER.DSC}`),
+    Markup.button.callback("Most shilled", `token_list?page=${page}&sort_by=${SORTING.SHILL}&order=${ORDER.DSC}`),
     Markup.button.callback("Recent first", `token_list?page=${page}&sort_by=${SORTING.LAST_MENTION}&order=${ORDER.ASC}`),
     Markup.button.callback("Alphabetical", `token_list?page=${page}&sort_by=${SORTING.NAME}&order=${ORDER.ASC}`),
   ])
