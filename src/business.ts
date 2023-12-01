@@ -40,7 +40,7 @@ export async function getTokenInfos(client: MongoClient, ticker: string) {
   - last shilled: ${date.toLocaleDateString()} ${date.toLocaleTimeString()}
   - shilled: ${project.messages.length} times in the group
   - first shilled by: @${firstMessage.author}
-  - more talkative: @${mostTalkative}
+  - most talkative: @${mostTalkative}
   - first message: ${firstMessage.url}
 `;
 }
