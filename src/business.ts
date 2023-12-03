@@ -7,7 +7,7 @@ import { ExtraEditMessageText } from "telegraf/typings/telegram-types";
 import { NavParams } from "./types";
 
 export function getTickers(message: string) {
-  const tickerRegex = /\$(?![0-9]+([kKmMbB][sS]?)?\b)[a-zA-Z0-9]+/gm; // Ticker regex
+  const tickerRegex = /\$(?![0-9]+([kKmMbB][sS]?)?\b)(?!(0[xX][a-fA-F0-9]{40})\b)[a-zA-Z0-9]+/gm; // Ticker regex
   const tickers = message.match(tickerRegex) ?? [];
   return Array.from(tickers).map(ticker => ticker.replace('$', '').toUpperCase());
 }
