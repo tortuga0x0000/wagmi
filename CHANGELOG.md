@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.0.1-alpha.15](https://github.com/tortuga0x0000/wagmi/compare/v0.0.1-alpha.14...v0.0.1-alpha.15) (2023-12-03)
+
+
+### Bug Fixes
+
+* capture eth address ([ab6a826](https://github.com/tortuga0x0000/wagmi/commit/ab6a826bfb088a77546cee12247d487132af7dfb))
+* regex allow $2M or $2B ([03ebc30](https://github.com/tortuga0x0000/wagmi/commit/03ebc306989cfa1badb9fc68a7acf43aae0a1a4c))
+
 ### [0.0.1-alpha.14](https://github.com/tortuga0x0000/wagmi/compare/v0.0.1-alpha.12...v0.0.1-alpha.14) (2023-12-01)
 
 ### [0.0.1-alpha.13](https://github.com/tortuga0x0000/wagmi/compare/v0.0.1-alpha.5...v0.0.1-alpha.13) (2023-12-01)
