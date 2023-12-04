@@ -1,12 +1,25 @@
+import { Document, ObjectId } from "mongodb";
+
 export enum ORDER {
-    ASC = "ASC",
-    DSC = "DSC",    
+    ASC = 1,
+    DSC = -1,
 }
 
 export enum SORTING {
-  SHILL = "SHILL",
-  LAST_MENTION = "LAST_MENTION",
-  NAME = "NAME"
+  SHILL,
+  LAST_MENTION,
+  NAME
+}
+
+export enum ROUTE {
+  token_list,
+  info,
+  reminders,
+}
+
+export enum COLLECTION_NAME {
+  data = "data",
+  reminders = "reminders"
 }
 
 export type NavParams = { page: number, sortBy: SORTING, order: ORDER }
@@ -18,7 +31,7 @@ export type NavParams = { page: number, sortBy: SORTING, order: ORDER }
  * and run json-schema-to-typescript to regenerate this file.
  */
 
-export interface Data {
+export interface DataDoc {
     /**
      * Unique token ticker for indexing
      */
@@ -48,4 +61,13 @@ export interface Data {
     }[];
     [k: string]: unknown;
   }
-  
+
+export interface ReminderDoc {
+  chatId: number
+  /**
+   * UTC
+   */
+  date: number
+  ticker: string
+  note?: string
+}

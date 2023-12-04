@@ -2,9 +2,9 @@ import * as dotenv from 'dotenv'
 import { MongoClient } from 'mongodb';
 import { Markup, Telegraf } from 'telegraf'
 import { message } from 'telegraf/filters'
-import { createTokenButtons, editMessageText, getCollection, getMessageURL, getTickers, getTokenInfos } from './business';
+import { createTokenButtons, editMessageText, getCollection, getMessageURL, getTickers, getTokenInfos, toOrder, toSorting, formatDate, isDate, addReminder, checkTicker, startReminders, startReminder } from './business';
 import { DB_NAME } from './constants';
-import { SORTING, ORDER } from './types';
+import { SORTING, ORDER, ROUTE, DataDoc, COLLECTION_NAME } from './types';
 
 dotenv.config(process.env.NODE_ENV === "production" ? { path: __dirname + '/.env' } : undefined);
 
@@ -19,34 +19,94 @@ const client = new MongoClient(url);
 
 const bot = new Telegraf(process.env.TG_BOT_ID!);
 
+bot.start(async function(ctx) {
+  ctx.reply(`
+Hello ${ctx.from.username},
+I am your new assistant to help you organize the information of your favorite group. I capture messages of the group as soon I read a $TOKEN or $token. So be careful how do you write it.
+
+You can control me with:
+- /list to display a list of all projects which has been shilled.
+- /remind to send you a programmed DM about a ticker at a specific date.
+  - The date needs to be in UTC
+  - You can provide a specific note (optional)
+  - Eg: /remind BTC ${formatDate(new Date(Date.now() + 3600000))} buy some BTC
+  `)
+})
+
 // Command to list all tokens
-bot.command('list', async function(ctx) {
+bot.command('list', async function (ctx) {
   if (ctx.chat.type !== 'private') {
     ctx.reply('Please use this command in private chat.');
     return;
   }
-  const buttons = await createTokenButtons(client, {page: 1, sortBy: SORTING.LAST_MENTION, order: ORDER.DSC});
+  const buttons = await createTokenButtons(client, { page: 1, sortBy: SORTING.LAST_MENTION, order: ORDER.DSC });
   ctx.reply('Select a token:', buttons);
 });
 
-// Handling callback queries
-bot.action(/(info\?)(.+)/, async function(ctx) {
+bot.command('remind', async function (ctx) {
+  // Setup a reminder for a specific ticker
+  const args = ctx.message.text.match(/^\/remind ([A-Z\d]+)\s(\d{4}-\d{2}-\d{2}\s\d{2}:\d{2})(\s.+)?/)
+  if (args) {
+    const user = ctx.message.from.username
+    const ticker = args[1]
+    const date = args[2]
+    const note = args[3]?.trim()
+    if (!isDate(date)) {
+      ctx.reply(`Argument are not correct, please ensure:
+      - of the order or the command arguments
+      - to provide a complete date YYYY-MM-DD HH-mm in the 24h notation
+      - to provide a date at UTC timezone
+      
+      Eg: /remind BTC ${formatDate(new Date())} buy some BTC`
+      )
+    } else if (!await checkTicker(client, ticker)) {
+      ctx.reply(`Ticker ${ticker} has not been shilled yet. You can't set a reminder for it.`)
+    } else if (user && date && ticker) {
+      const timestamp = new Date(date + ' UTC').getTime() 
+      if (timestamp <= Date.now()) {
+        ctx.reply(`Please provide a date in the future.`)
+      } else { 
+        const data = {
+          chatId: ctx.message.chat.id,
+          ticker,
+          date: timestamp,
+          note
+        }
+        const id = await addReminder(
+          client,
+          data
+        )
+        startReminder(bot, client, {
+            _id: id.insertedId,
+            ...data,
+          }
+        ) 
+        ctx.reply(`Reminder set to the ${date} UTC`)
+      }
+    }
+  }
+})
+
+// Handling info
+bot.action(new RegExp(`(${ROUTE.info}\\?)(.+)`), async function (ctx) { // Note the double \\ to escape the ? because we use a template litteral
   // Parse the query payload
   const queryParams = new URLSearchParams(ctx.match[2])
   const { page, sortBy, order } = getNavParams(queryParams);
 
-  const ticker = queryParams.get('ticker');
+  const ticker = queryParams.get('t');
   if (ticker) {
     editMessageText(
       ctx,
       await getTokenInfos(client, ticker),
-      Markup.inlineKeyboard([Markup.button.callback('Back to List', `token_list?page=${page}&sort_by=${sortBy}&order=${order}`)])
+      Markup.inlineKeyboard([
+        [Markup.button.callback('Back to List', `${ROUTE.token_list}?p=${page}&s=${sortBy}&o=${order}`)]
+      ])
     );
   }
 });
 
 // Handling pagination
-bot.action(/(token_list\?)(.+)/, async (ctx) => {
+bot.action(new RegExp(`(${ROUTE.token_list}\\?)(.+)`), async (ctx) => {
   // Parse the query payload
   const queryParams = new URLSearchParams(ctx.match[2])
 
@@ -55,44 +115,53 @@ bot.action(/(token_list\?)(.+)/, async (ctx) => {
   editMessageText(ctx, 'Select a token:', markup);
 });
 
+// Display reminders for a token
+bot.action(new RegExp(`(${ROUTE.reminders}\\?)(.+)`), async (ctx) => {
+  // Parse the query payload
+  const queryParams = new URLSearchParams(ctx.match[2])
+
+  const { page, sortBy, order } = getNavParams(queryParams);
+})
+
 // WARNING: always declare this handler last otherwise it will swallow the bot commands
-bot.on(message('text'), async function(ctx) {
-  // Check if the message is a command and skip processing if it is
-  if (ctx.message.text.startsWith('/')) {
-    return;
-  }
-  const message = ctx.message.text
-  
-  //TEMP just for "forward" feature experimentation
-  //TODO limit forwarding to message with original chat id.
-  const isForwarded = !!ctx.message.forward_from
-  const author = isForwarded
-    ? ctx.message.forward_from?.username
-    : ctx.from.username
+bot.on(message('text'), async function (ctx) {
+  // Guess the intent
 
-  if (!message || !author) {
-    return
-  }
+  // Add some new projects shilled in group chat
+  if (ctx.message.chat.type !== "private") {
+    const message = ctx.message.text
 
-  const tickers = getTickers(message);
-  const date = ctx.message.date
-  const messageURL = getMessageURL(ctx)
-  
-  for (const ticker of tickers) {
-    const collection = await getCollection(client)
-    const item = await collection.findOne({ ticker })
+    //TEMP just for "forward" feature experimentation
+    //TODO limit forwarding to message with original chat id.
+    const isForwarded = !!ctx.message.forward_from
+    const author = isForwarded
+      ? ctx.message.forward_from?.username
+      : ctx.from.username
 
-    if (item && author) {
-      item.shillers.push(author)
-      item.messages.push({ url: messageURL, content: message, author, date })
-      collection.replaceOne({ _id: item._id }, item)
+    if (!message || !author) {
+      return
+    }
 
-    } else if (author) {
-      await collection.insertOne({
-        ticker,
-        shillers: [author],
-        messages: [{ url: messageURL, content: message, author, date }]
-      })
+    const tickers = getTickers(message);
+    const date = ctx.message.date
+    const messageURL = getMessageURL(ctx)
+
+    for (const ticker of tickers) {
+      const collection = await getCollection<DataDoc>(client, COLLECTION_NAME.data)
+      const item = await collection.findOne({ ticker })
+
+      if (item && author) {
+        item.shillers.push(author)
+        item.messages.push({ url: messageURL, content: message, author, date })
+        collection.replaceOne({ _id: item._id }, item)
+
+      } else if (author) {
+        await collection.insertOne({
+          ticker,
+          shillers: [author],
+          messages: [{ url: messageURL, content: message, author, date }]
+        })
+      }
     }
   }
 });
@@ -102,16 +171,20 @@ bot.catch((err, ctx) => {
 });
 
 function getNavParams(queryParams: URLSearchParams) {
-  const page = Number(queryParams.get('page'));
-  const sortBy = queryParams.get('sort_by') as SORTING ?? SORTING.LAST_MENTION;
-  const order = queryParams.get('order') as ORDER ?? ORDER.DSC;
-  return { page, sortBy, order };
+  const page = Number(queryParams.get('p'));
+  const sortBy = queryParams.get('s');
+  const order = queryParams.get('o');
+  return { page, sortBy: toSorting(Number(sortBy)), order: toOrder(order) };
 }
+
 
 async function main() {
   await client.connect();
   console.log('Connected to MongoDB');
-  bot.launch();
+  await bot.launch();
+
+  // Restart the reminders timeout
+  startReminders(client, bot)
 }
 
 main().catch(console.error);
