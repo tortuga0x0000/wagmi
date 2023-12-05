@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.0.1-alpha.16](https://github.com/tortuga0x0000/wagmi/compare/v0.0.1-alpha.15...v0.0.1-alpha.16) (2023-12-05)
+
+
+### Features
+
+* add reminder command ([3cebf67](https://github.com/tortuga0x0000/wagmi/commit/3cebf6789bc7aee81775e27c54874fe857a1051b))
+
+### Bug Fixes
+
+* "undefined" note ([e71358b](https://github.com/tortuga0x0000/wagmi/commit/e71358b4445eb756a971b4021f445216d41d9d00))
+* reminders does not restart after reboot ([56dc72c](https://github.com/tortuga0x0000/wagmi/commit/56dc72c321a3a550c60f60dab243bee9f4ace2bf))
+
 ### [0.0.1-alpha.15](https://github.com/tortuga0x0000/wagmi/compare/v0.0.1-alpha.14...v0.0.1-alpha.15) (2023-12-03)
 
 
