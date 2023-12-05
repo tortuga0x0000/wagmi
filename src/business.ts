@@ -276,7 +276,7 @@ export async function startReminder(bot: Telegraf<Context<Update>>, client: Mong
       bot.telegram.sendMessage(
         reminder.chatId,
         `Reminder for ${reminder.ticker}
-${reminder.note}`
+${reminder.note ?? ''}`
       );
       clearTimeout(handler);
       const collection = await getCollection<ReminderDoc>(client, COLLECTION_NAME.reminders)

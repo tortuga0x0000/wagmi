@@ -181,10 +181,10 @@ function getNavParams(queryParams: URLSearchParams) {
 async function main() {
   await client.connect();
   console.log('Connected to MongoDB');
-  await bot.launch();
-
   // Restart the reminders timeout
   startReminders(client, bot)
+  await bot.launch();
+  // https://github.com/telegraf/telegraf/issues/1749 the launch function never resolve. Any code below will never be executed.
 }
 
 main().catch(console.error);
