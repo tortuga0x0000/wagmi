@@ -71,3 +71,81 @@ export interface ReminderDoc {
   ticker: string
   note?: string
 }
+
+export interface Call {
+  author: string
+  ticker: string
+  reason: string
+  entries: string[]
+  sl: string
+  targets: string[]
+}
+
+export enum CallConversationState {
+  new,
+  ticker,
+  reason,
+  type,
+  entry,
+  exit,
+  stopLoss,
+}
+
+export enum CallType {
+  long = "long",
+  short = "short",
+}
+
+export type CallConversation =
+| {
+  step: CallConversationState.new
+}
+| {
+  step: CallConversationState.ticker
+  data: { ticker: string }
+}
+| {
+  step: CallConversationState.reason
+  data: { 
+    ticker: string
+    reason: string
+  }
+}
+| {
+  step: CallConversationState.type
+  data: {
+    ticker: string
+    reason: string
+    type: CallType
+  }
+}
+| {
+  step: CallConversationState.entry
+  data: {
+    ticker: string
+    reason: string
+    type: CallType
+    entries: string[]
+  }
+}
+| {
+  step: CallConversationState.exit
+  data: {
+    ticker: string
+    reason: string
+    type: CallType
+    entries: string[]
+    targets: string[]
+  }
+}
+| {
+  step: CallConversationState.stopLoss
+  data:{
+    ticker: string
+    reason: string
+    type: CallType
+    entries: string[]
+    targets: string[]
+    stopLoss: string
+  }
+}

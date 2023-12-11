@@ -1,16 +1,17 @@
 import { MongoClient, ObjectId, WithId } from "mongodb";
 import { DB_NAME, TOKENS_PER_PAGE } from "./constants";
-import { ROUTE, COLLECTION_NAME, DataDoc, ORDER, ReminderDoc, SORTING } from "./types";
-import { Context, Markup, Telegraf } from "telegraf";
+import { ROUTE, COLLECTION_NAME, DataDoc, ORDER, ReminderDoc, SORTING, CallConversation, CallConversationState, CallType } from "./types";
+import { Context, Markup, NarrowedContext, Telegraf } from "telegraf";
 import { FmtString } from "telegraf/typings/format";
 import { ExtraEditMessageText } from "telegraf/typings/telegram-types";
 import { NavParams } from "./types";
-import { Update } from "telegraf/typings/core/types/typegram";
+import { CallbackQuery, Message, Update } from "telegraf/typings/core/types/typegram";
 
 const remindersTimeoutHandlers: TimerHandler[] = []
 
+const tickerRegex = /\$(?![0-9]+([kKmMbB][sS]?)?\b)(?!(0[xX][a-fA-F0-9]{40})\b)[a-zA-Z0-9]+/gm; // Ticker regex
+
 export function getTickers(message: string) {
-  const tickerRegex = /\$(?![0-9]+([kKmMbB][sS]?)?\b)(?!(0[xX][a-fA-F0-9]{40})\b)[a-zA-Z0-9]+/gm; // Ticker regex
   const tickers = message.match(tickerRegex) ?? [];
   return Array.from(tickers).map(ticker => ticker.replace('$', '').toUpperCase());
 }
@@ -52,7 +53,7 @@ function addMs(project: DataDoc) {
   return new Date(project.messages.at(-1)!.date * 1000);
 }
 
-/**
+/*
  * Helper function to create inline keyboard buttons for tokens
  */
 export async function createTokenButtons(client: MongoClient, { page, sortBy, order }: NavParams) {
@@ -153,7 +154,7 @@ export async function getCollection<T extends DataDoc | ReminderDoc >(client: Mo
   }
 }
 
-/**
+/*
  * Swallow the error if this is caused by "message is not modified" or propage the error otherwise
  */
 export function editMessageText(ctx: Context, text: string | FmtString, extra?: ExtraEditMessageText) {
@@ -283,4 +284,123 @@ ${reminder.note ?? ''}`
       collection.findOneAndDelete({_id: reminder._id})
     }, timeout);
   }
+}
+
+export function isPrivateChat(ctx: {chat?: { type: string }} & Context<Update>) {
+  return ctx.chat?.type !== 'private'
+}
+
+export async function continueCallConversation(
+  bot: Telegraf,
+  ctx: NarrowedContext<Context<Update>, Update.MessageUpdate<Record<"text", {}> & Message.TextMessage>>,
+  conversation: CallConversation, conversations: Map<number, CallConversation>) {
+  switch (conversation.step) {
+    case CallConversationState.new:
+        // Condition
+        if (isValidTicker(ctx.message.text)) {
+          // Mutation
+          conversations.set(ctx.chat.id, {
+            step: CallConversationState.ticker,
+            data: { ticker: getTicker(ctx.message.text)?.[0].toUpperCase()! } // FIXME: non null assertion
+          })
+          // Reaction
+          ctx.reply('Enter the reason of the call:');
+        } else {
+          ctx.reply(`Please check the ticker format:
+          - can start with $
+          - can contains lower case or uppercase and numbers
+          - must be only ONE word`
+          ); 
+        }
+        break;
+    case CallConversationState.ticker:
+        // Condition
+        if (ctx.message.text.length) {
+          conversations.set(ctx.chat.id, {
+            step: CallConversationState.reason,
+            data: { ...conversation.data, reason: ctx.message.text }
+          })
+          // Reaction
+          ctx.reply('Enter the type of call ("long" or "short"):');
+        } else {
+          ctx.reply('Please enter a reason for the call.')
+        }
+        break;
+    case CallConversationState.reason:
+      // Condition
+      const type = ctx.message.text
+      if (isCallType(type)) {
+        // Mutation
+        conversations.set(ctx.chat.id, {
+          step: CallConversationState.type,
+          data: { ...conversation.data, type }
+        })
+        // Reaction
+        ctx.reply('Enter the price entry, separated with a space if multiple entries (eg: "12" or "12 12.5")')
+      } else {
+        ctx.reply('Please, enter the type of call price or range (enter "short" or "long"):');
+      }
+      break;
+    case CallConversationState.type:
+      const entries = getNumbers(ctx.message.text)
+      if (entries.length) {
+        conversations.set(ctx.chat.id, {
+          step: CallConversationState.entry,
+          data: { ...conversation.data, entries }
+        })
+        ctx.reply('Enter the price level for exit, separated with a space in case of multiple TPs (eg: "12" or "12 12.5").');
+      } else {
+        ctx.reply('Please, enter the price entry, separated with a space if multiple entries (eg: "12" or "12 12.5")')
+      }
+      break;
+      case CallConversationState.entry:
+        const targets = getNumbers(ctx.message.text)
+        if (targets.length) {
+          conversations.set(ctx.chat.id, {
+            step: CallConversationState.exit,
+            data: { ...conversation.data, targets }
+          })
+          ctx.reply('Enter the stop loss level:');
+        } else {
+          ctx.reply('Please, enter the price level for exit, separated with a space in case of multiple TPs (eg: "12" or "12 12.5").');
+        }
+        break;
+    case CallConversationState.exit:
+        const sl = getNumbers(ctx.message.text)
+        if (sl.length === 1) {
+          bot.telegram.sendMessage(-1002123255613, `
+🧐 *Author*: @${ctx.message.from.username}
+💲 *Symbol*: $${conversation.data.ticker}
+💡 *Reason*: ${conversation.data.reason} 
+${conversation.data.type === CallType.long ? '📈' : '📉'} *Type*: ${conversation.data.type}
+🚪 *Entry*: ${conversation.data.entries.map(p =>`$${p}`)}
+🎯 *Targets*: ${conversation.data.targets.map(p =>`$${p}`)}
+🛟 *Stop loss*: $${sl[0]}
+                  `, { message_thread_id: 2, parse_mode: "Markdown" })
+                  // Clean state
+                  conversations.delete(ctx.chat.id)
+          
+                  ctx.reply("Call successfully added")
+        } else {
+          ctx.reply('Please, enter The stop loss level. Just one number (eg: 12.5');
+        }
+        break;
+  }
+}
+
+function getTicker(ticker: string) {
+  return ticker.match(/(?![0-9]+([kKmMbB][sS]?)?\b)(?!(0[xX][a-fA-F0-9]{40})\b)[a-zA-Z0-9]+/g)
+}
+
+function isValidTicker(ticker: string) {
+  return getTicker(ticker)?.length === 1
+}
+
+function getNumbers(msg: string) {
+  const match = msg.match(/(\d+(\.\d+)?)/g)
+  return match ? match.slice() : []
+}
+
+function isCallType(type: string): type is CallType {
+  return type === CallType.long || type === CallType.short
 }
