@@ -71,3 +71,14 @@ export interface ReminderDoc {
   ticker: string
   note?: string
 }
+
+export enum Source {
+  CoinGecko,
+  DextTool,
+}
+
+export interface Project {
+  id: string
+  source: Source
+  ticker: string
+}

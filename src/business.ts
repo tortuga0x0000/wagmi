@@ -1,11 +1,13 @@
 import { MongoClient, ObjectId, WithId } from "mongodb";
+import axios from "axios"
 import { DB_NAME, TOKENS_PER_PAGE } from "./constants";
-import { ROUTE, COLLECTION_NAME, DataDoc, ORDER, ReminderDoc, SORTING } from "./types";
+import { ROUTE, COLLECTION_NAME, DataDoc, ORDER, ReminderDoc, SORTING, Project, Source } from "./types";
 import { Context, Markup, Telegraf } from "telegraf";
 import { FmtString } from "telegraf/typings/format";
 import { ExtraEditMessageText } from "telegraf/typings/telegram-types";
 import { NavParams } from "./types";
 import { Update } from "telegraf/typings/core/types/typegram";
+import { CoinGeckoService } from "./services";
 
 const remindersTimeoutHandlers: TimerHandler[] = []
 
@@ -255,7 +257,7 @@ export async function addReminder(client: MongoClient, {chatId, ticker, date, no
   })
 }
 
-export async function checkTicker(client: MongoClient, ticker: string) {
+export async function hasTicker(client: MongoClient, ticker: string) {
   const collection = await getCollection<DataDoc>(client, COLLECTION_NAME.data)
   const project = await collection.findOne({ticker})
   return !!project
@@ -282,5 +284,69 @@ ${reminder.note ?? ''}`
       const collection = await getCollection<ReminderDoc>(client, COLLECTION_NAME.reminders)
       collection.findOneAndDelete({_id: reminder._id})
     }, timeout);
+  }
+}
+
+export async function checkTickers(tickers: string[]): Promise<string[]> {
+
+  return tickers.filter(t => CoinGeckoService.data.some(({symbol}) => symbol === t))
+
+  const results: Project[] = [];
+
+  for (const ticker of tickers) {
+      // First try CoinGecko
+      const coinGeckoResult = await fetchFromCoinGecko(ticker);
+      if (coinGeckoResult) {
+          results.push(coinGeckoResult);
+          continue;
+      }
+
+      // Then try DextTool
+      const dextToolResult = await fetchFromDextTool(ticker);
+      if (dextToolResult) {
+          results.push(dextToolResult);
+      }
+  }
+
+  return results;
+}
+
+export async function fetchFromCoinGecko(ticker: string): Promise<Project | undefined> {
+  try {
+    // Replace with the appropriate CoinGecko API endpoint
+    const url = `https://api.coingecko.com/api/v3/coins/${ticker}`;
+    const response = await axios.get(url);
+
+    // Assuming the response contains the data in a format you expect
+    // You may need to adjust the accessors based on the actual API response structure
+    const data = response.data;
+
+    return {
+        id: data.id, // or however the ID is represented in the response
+        source: Source.CoinGecko,
+        ticker: ticker, // or you may fetch it from data if available
+    };
+  } catch (error) {
+      console.error('Error fetching from CoinGecko:', error);
+  }
+}
+
+export async function fetchFromDextTool(ticker: string): Promise<Project | undefined> {
+  try {
+    // Replace with the appropriate DextTool API endpoint
+    const url = `https://api.dextool.com/api/endpoint/${ticker}`;
+    const response = await axios.get(url);
+
+    // Parse the response based on DextTool's response structure
+    // This will need to be adjusted based on the actual API response
+    const data = response.data;
+
+    return {
+        id: data.id, // Adjust according to the actual response field for 'id'
+        source: Source.DextTool,
+        ticker: ticker, // or fetch from data if available
+    };
+  } catch (error) {
+      console.error('Error fetching from DextTool:', error);
   }
 }

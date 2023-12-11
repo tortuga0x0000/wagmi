@@ -2,7 +2,8 @@ import * as dotenv from 'dotenv'
 import { MongoClient } from 'mongodb';
 import { Markup, Telegraf } from 'telegraf'
 import { message } from 'telegraf/filters'
-import { createTokenButtons, editMessageText, getCollection, getMessageURL, getTickers, getTokenInfos, toOrder, toSorting, formatDate, isDate, addReminder, checkTicker, startReminders, startReminder } from './business';
+import { createTokenButtons, editMessageText, getCollection, getMessageURL, getTickers, getTokenInfos, toOrder, toSorting, formatDate, isDate, addReminder, hasTicker, startReminders, startReminder, checkTickers } from './business';
+import { CoinGeckoService } from './services'
 import { DB_NAME } from './constants';
 import { SORTING, ORDER, ROUTE, DataDoc, COLLECTION_NAME } from './types';
 
@@ -42,7 +43,7 @@ bot.command('list', async function (ctx) {
   const buttons = await createTokenButtons(client, { page: 1, sortBy: SORTING.LAST_MENTION, order: ORDER.DSC });
   ctx.reply('Select a token:', buttons);
 });
-
+/* \$(?![0-9]+([kKmMbBtT][nN]?[sS]?)?\b)(?!(0[xX][a-fA-F0-9]{40})\b)[a-zA-Z0-9]+ */
 bot.command('remind', async function (ctx) {
   // Setup a reminder for a specific ticker
   const args = ctx.message.text.match(/^\/remind ([A-Z\d]+)\s(\d{4}-\d{2}-\d{2}\s\d{2}:\d{2})(\s.+)?/)
@@ -59,7 +60,7 @@ bot.command('remind', async function (ctx) {
       
       Eg: /remind BTC ${formatDate(new Date())} buy some BTC`
       )
-    } else if (!await checkTicker(client, ticker)) {
+    } else if (!await hasTicker(client, ticker)) {
       ctx.reply(`Ticker ${ticker} has not been shilled yet. You can't set a reminder for it.`)
     } else if (user && date && ticker) {
       const timestamp = new Date(date + ' UTC').getTime() 
@@ -128,7 +129,7 @@ bot.on(message('text'), async function (ctx) {
   // Guess the intent
 
   // Add some new projects shilled in group chat
-  if (ctx.message.chat.type !== "private") {
+  if (ctx.message.chat.type !== "private" || ctx.message.from.username === "tortuga0x0000") {
     const message = ctx.message.text
 
     //TEMP just for "forward" feature experimentation
@@ -145,6 +146,7 @@ bot.on(message('text'), async function (ctx) {
     const tickers = getTickers(message);
     const date = ctx.message.date
     const messageURL = getMessageURL(ctx)
+    const toCheck: string[] = []
 
     for (const ticker of tickers) {
       const collection = await getCollection<DataDoc>(client, COLLECTION_NAME.data)
@@ -155,13 +157,21 @@ bot.on(message('text'), async function (ctx) {
         item.messages.push({ url: messageURL, content: message, author, date })
         collection.replaceOne({ _id: item._id }, item)
 
-      } else if (author) {
-        await collection.insertOne({
-          ticker,
-          shillers: [author],
-          messages: [{ url: messageURL, content: message, author, date }]
-        })
+      } else {
+        if (author) {
+          toCheck.push(ticker)
+        }
       }
+      
+      // Check all the new ticker
+      (await checkTickers(toCheck))
+        .forEach(async function(newTicker){
+          await collection.insertOne({
+            ticker: newTicker,
+            shillers: [author],
+            messages: [{ url: messageURL, content: message, author, date }]
+          })
+        })
     }
   }
 });
@@ -183,6 +193,10 @@ async function main() {
   console.log('Connected to MongoDB');
   // Restart the reminders timeout
   startReminders(client, bot)
+  // Start services
+  if (!await CoinGeckoService.start()) {
+    console.error("start failed: coin gecko")
+  }
   await bot.launch();
   // https://github.com/telegraf/telegraf/issues/1749 the launch function never resolve. Any code below will never be executed.
 }
