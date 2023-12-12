@@ -19,7 +19,8 @@ export enum ROUTE {
 
 export enum COLLECTION_NAME {
   data = "data",
-  reminders = "reminders"
+  reminders = "reminders",
+  config = "config",
 }
 
 export type NavParams = { page: number, sortBy: SORTING, order: ORDER }
@@ -70,4 +71,99 @@ export interface ReminderDoc {
   date: number
   ticker: string
   note?: string
+}
+
+export interface Call {
+  author: string
+  ticker: string
+  reason: string
+  entries: string[]
+  sl: string
+  targets: string[]
+}
+
+export enum CallConversationState {
+  new,
+  ticker,
+  categories,
+  reason,
+  type,
+  entry,
+  exit,
+  stopLoss,
+}
+
+export enum CallType {
+  long = "long",
+  short = "short",
+}
+
+export type CallConversation =
+| {
+  step: CallConversationState.new
+}
+| {
+  step: CallConversationState.ticker
+  data: { ticker: string }
+}
+| {
+  step: CallConversationState.categories
+  data: { 
+    ticker: string
+    categories: string[]
+  }
+}| {
+  step: CallConversationState.reason
+  data: { 
+    ticker: string
+    categories: string[]
+    reason: string
+  }
+}
+| {
+  step: CallConversationState.type
+  data: {
+    ticker: string
+    categories: string[]
+    reason: string
+    type: CallType | null
+  }
+}
+| {
+  step: CallConversationState.entry
+  data: {
+    ticker: string
+    categories: string[]
+    reason: string
+    type: CallType | null
+    entries: string[] | null
+  }
+}
+| {
+  step: CallConversationState.exit
+  data: {
+    ticker: string
+    categories: string[]
+    reason: string
+    type: CallType | null
+    entries: string[] | null
+    targets: string[] | null
+  }
+}
+| {
+  step: CallConversationState.stopLoss
+  data:{
+    ticker: string
+    categories: string[]
+    reason: string
+    type: CallType | null
+    entries: string[] | null
+    targets: string[] | null
+    stopLoss: string
+  }
+}
+
+export interface Config {
+  groupId: number
+  categories: string[]
 }

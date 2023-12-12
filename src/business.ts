@@ -1,16 +1,17 @@
 import { MongoClient, ObjectId, WithId } from "mongodb";
-import { DB_NAME, TOKENS_PER_PAGE } from "./constants";
-import { ROUTE, COLLECTION_NAME, DataDoc, ORDER, ReminderDoc, SORTING } from "./types";
-import { Context, Markup, Telegraf } from "telegraf";
+import { DB_NAME, NA_ANSWER, NA_VALUE, TOKENS_PER_PAGE } from "./constants";
+import { ROUTE, COLLECTION_NAME, DataDoc, ORDER, ReminderDoc, SORTING, CallConversation, CallConversationState, CallType, Config } from "./types";
+import { Context, Markup, NarrowedContext, Telegraf } from "telegraf";
 import { FmtString } from "telegraf/typings/format";
 import { ExtraEditMessageText } from "telegraf/typings/telegram-types";
 import { NavParams } from "./types";
-import { Update } from "telegraf/typings/core/types/typegram";
+import { CallbackQuery, Message, Update } from "telegraf/typings/core/types/typegram";
 
 const remindersTimeoutHandlers: TimerHandler[] = []
 
+const tickerRegex = /\$(?![0-9]+([kKmMbB][sS]?)?\b)(?!(0[xX][a-fA-F0-9]{40})\b)[a-zA-Z0-9]+/gm; // Ticker regex
+
 export function getTickers(message: string) {
-  const tickerRegex = /\$(?![0-9]+([kKmMbB][sS]?)?\b)(?!(0[xX][a-fA-F0-9]{40})\b)[a-zA-Z0-9]+/gm; // Ticker regex
   const tickers = message.match(tickerRegex) ?? [];
   return Array.from(tickers).map(ticker => ticker.replace('$', '').toUpperCase());
 }
@@ -52,7 +53,7 @@ function addMs(project: DataDoc) {
   return new Date(project.messages.at(-1)!.date * 1000);
 }
 
-/**
+/*
  * Helper function to create inline keyboard buttons for tokens
  */
 export async function createTokenButtons(client: MongoClient, { page, sortBy, order }: NavParams) {
@@ -136,7 +137,7 @@ export async function createTokenButtons(client: MongoClient, { page, sortBy, or
   return Markup.inlineKeyboard(rows);
 };
 
-export async function getCollection<T extends DataDoc | ReminderDoc >(client: MongoClient, collectionName: COLLECTION_NAME) {
+export async function getCollection<T extends DataDoc | ReminderDoc | Config>(client: MongoClient, collectionName: COLLECTION_NAME) {
   const db = client.db(DB_NAME);
   const hasCollection = (await db.listCollections({}, { nameOnly: true }).toArray())
     .some(c => c.name === collectionName)
@@ -153,7 +154,7 @@ export async function getCollection<T extends DataDoc | ReminderDoc >(client: Mo
   }
 }
 
-/**
+/*
  * Swallow the error if this is caused by "message is not modified" or propage the error otherwise
  */
 export function editMessageText(ctx: Context, text: string | FmtString, extra?: ExtraEditMessageText) {
@@ -244,7 +245,7 @@ export function isDate(dateString: string) {
   return DATE_REGEX.test(dateString);
 }
 
-export async function addReminder(client: MongoClient, {chatId, ticker, date, note}: {chatId: number, ticker: string, date: number, note?: string}){
+export async function addReminder(client: MongoClient, { chatId, ticker, date, note }: { chatId: number, ticker: string, date: number, note?: string }) {
   const reminders = await getCollection<ReminderDoc>(client, COLLECTION_NAME.reminders)
 
   return reminders.insertOne({
@@ -257,14 +258,14 @@ export async function addReminder(client: MongoClient, {chatId, ticker, date, no
 
 export async function checkTicker(client: MongoClient, ticker: string) {
   const collection = await getCollection<DataDoc>(client, COLLECTION_NAME.data)
-  const project = await collection.findOne({ticker})
+  const project = await collection.findOne({ ticker })
   return !!project
 }
 
 export async function startReminders(client: MongoClient, bot: Telegraf<Context<Update>>) {
   const collection = await getCollection<ReminderDoc>(client, COLLECTION_NAME.reminders)
   const reminders = await collection.find().toArray()
-  reminders.forEach(function(reminder) {
+  reminders.forEach(function (reminder) {
     startReminder(bot, client, reminder)
   })
 }
@@ -280,7 +281,188 @@ ${reminder.note ?? ''}`
       );
       clearTimeout(handler);
       const collection = await getCollection<ReminderDoc>(client, COLLECTION_NAME.reminders)
-      collection.findOneAndDelete({_id: reminder._id})
+      collection.findOneAndDelete({ _id: reminder._id })
     }, timeout);
   }
+}
+
+export function isPrivateChat(ctx: { chat?: { type: string } } & Context<Update>) {
+  return ctx.chat?.type === 'private'
+}
+
+export async function continueCallConversation(
+  {
+    bot,
+    client,
+    ctx,
+    conversation,
+    conversations
+  }: {
+    bot: Telegraf;
+    client: MongoClient
+    ctx: NarrowedContext<Context<Update>, Update.MessageUpdate<Record<"text", {}> & Message.TextMessage>>
+    conversation: CallConversation
+    conversations: Map<number, CallConversation>
+  }) {
+  switch (conversation.step) {
+    case CallConversationState.new:
+      // Condition
+      if (isValidTicker(ctx.message.text)) {
+        // Mutation
+        conversations.set(ctx.chat.id, {
+          step: CallConversationState.ticker,
+          data: { ticker: getTicker(ctx.message.text)?.[0].toUpperCase()! } // FIXME: non null assertion
+        })
+        const existingCategories = (await getConfig(client, Number(process.env.CHAT_ID!)))?.categories ?? []
+        // Reaction
+        ctx.reply(`Enter the narratives from the following list, separated with a space:\n${existingCategories.map(c => `\n - ${c}`).join('')}`);
+        
+      } else {
+        ctx.reply(`Please check the ticker format:
+          - can start with $
+          - can contains lower case or uppercase and numbers
+          - must be only ONE word`
+        );
+      }
+      break;
+    case CallConversationState.ticker:
+      // Condition
+      const inputCategories = ctx.message.text.toLocaleLowerCase().split(' ')
+      const existingCategories = (await getConfig(client, Number(process.env.CHAT_ID!)))?.categories ?? []
+      const validatedCategories = inputCategories.filter(c => existingCategories.includes(c))
+      if (validatedCategories.length === inputCategories.length) {
+        conversations.set(ctx.chat.id, {
+          step: CallConversationState.categories,
+          data: { ...conversation.data, categories: validatedCategories }
+        })
+        // Reaction
+        ctx.reply('Enter the reason of the call:');
+      } else {
+        ctx.reply('Some categories are not part of the available list.')
+        ctx.reply(`Please, enter the narratives from the following list, separated with a space:\n${existingCategories.map(c => `\n - ${c}`).join('')}`);
+      }
+      break;
+    case CallConversationState.categories:
+      // Condition
+      if (ctx.message.text.length) {
+        conversations.set(ctx.chat.id, {
+          step: CallConversationState.reason,
+          data: { ...conversation.data, reason: ctx.message.text }
+        })
+        // Reaction
+        ctx.reply('Enter the type of call ("long" or "short") or "NA" to skip:');
+      } else {
+        ctx.reply('Please enter a reason for the call.')
+      }
+      break;
+    case CallConversationState.reason:
+      // Condition
+      const type = ctx.message.text === NA_ANSWER ? NA_VALUE : ctx.message.text
+      if (type === NA_VALUE || isCallType(type)) {
+        // Mutation
+        conversations.set(ctx.chat.id, {
+          step: CallConversationState.type,
+          data: { ...conversation.data, type: type }
+        })
+        // Reaction
+        ctx.reply('Enter the price entry, separated with a space if multiple entries (eg: "12" or "12 12.5") or "NA" to skip:')
+      } else {
+        ctx.reply('Please, enter the type of call price or range (enter "short" or "long") or "NA" to skip:');
+      }
+      break;
+    case CallConversationState.type:
+      const entries = getNumbers(ctx.message.text)
+      if (entries?.length || ctx.message.text === NA_ANSWER) {
+        conversations.set(ctx.chat.id, {
+          step: CallConversationState.entry,
+          data: { ...conversation.data, entries }
+        })
+        ctx.reply('Enter the price level for exit, separated with a space in case of multiple TPs (eg: "12" or "12 12.5") or "NA" to skip:');
+      } else {
+        ctx.reply('Please, enter the price entry, separated with a space if multiple entries (eg: "12" or "12 12.5") or "NA" to skip:')
+      }
+      break;
+    case CallConversationState.entry:
+      const targets = getNumbers(ctx.message.text)
+      if (targets?.length || ctx.message.text === NA_ANSWER) {
+        conversations.set(ctx.chat.id, {
+          step: CallConversationState.exit,
+          data: { ...conversation.data, targets }
+        })
+        ctx.reply('Enter the stop loss level or "NA" to skip:');
+      } else {
+        ctx.reply('Please, enter the price level for exit, separated with a space in case of multiple TPs (eg: "12" or "12 12.5") or "NA" to skip:');
+      }
+      break;
+    case CallConversationState.exit:
+      const sl = getNumbers(ctx.message.text)
+      if (sl === NA_VALUE || sl.length === 1) {
+        bot.telegram.sendMessage(-1002123255613, `
+🧐 *Author*: @${ctx.message.from.username}
+💲 *Symbol*: $${conversation.data.ticker}
+🏷️ *Categories*: ${conversation.data.categories.join(' ')}
+💡 *Reason*: ${conversation.data.reason}
+${conversation.data.type !== NA_VALUE
+            ? `${conversation.data.type === CallType.long ? '📈' : '📉'} *Type*: ${conversation.data.type}`
+            : ''}${conversation.data.entries !== NA_VALUE
+              ? `🚪 *Entry*: ${conversation.data.entries.map(p => `$${p}`)}`
+              : ''}${conversation.data.targets !== NA_VALUE
+                ? `🎯 *Targets*: ${conversation.data.targets.map(p => `$${p}`)}`
+                : ''}${sl !== NA_VALUE
+                  ? `🛟 *Stop loss*: $${sl[0]}`
+                  : ''}
+                  `, { message_thread_id: 2, parse_mode: "Markdown" })
+        // Clean state
+        conversations.delete(ctx.chat.id)
+
+        ctx.reply("Call successfully added")
+      } else {
+        ctx.reply('Please, enter The stop loss level. Just one number (eg: 12.5) or "NA" to skip:');
+      }
+      break;
+  }
+}
+
+function getTicker(ticker: string) {
+  return ticker.match(/(?![0-9]+([kKmMbB][sS]?)?\b)(?!(0[xX][a-fA-F0-9]{40})\b)[a-zA-Z0-9]+/g)
+}
+
+function isValidTicker(ticker: string) {
+  return getTicker(ticker)?.length === 1
+}
+
+function getNumbers(msg: string) {
+  if (msg === NA_ANSWER) {
+    return NA_VALUE
+  }
+  const match = msg.match(/(\d+(\.\d+)?)/g)
+  return match ? match.slice() : []
+}
+
+function isCallType(type: string): type is CallType {
+  return type === CallType.long || type === CallType.short
+}
+
+export async function createConfigIfNotExists(client: MongoClient, groupId: number) {
+  const collection = await getCollection<Config>(client, COLLECTION_NAME.config)
+  const config = await collection.findOne({ groupId })
+  if (!config) {
+    await collection.insertOne({ groupId, categories: [] })
+  }
+}
+
+export async function getConfig(client: MongoClient, groupId: number) {
+  const collection = await getCollection<Config>(client, COLLECTION_NAME.config)
+  return await collection.findOne({ groupId })
+}
+
+export async function addCategories({ client, groupId, categories }: { client: MongoClient; groupId: number; categories: string[]; }) {
+  const collection = await getCollection<Config>(client, COLLECTION_NAME.config)
+  await collection.updateOne({ groupId }, { $addToSet: { categories: { $each: categories } } })
+}
+
+export async function removeCategories({ client, groupId, categories }: { client: MongoClient; groupId: number; categories: string[]; }) {
+  const collection = await getCollection<Config>(client, COLLECTION_NAME.config)
+  const existingCategories = (await getConfig(client, groupId))?.categories ?? []
+  await collection.updateOne({ groupId }, { $set: { categories: existingCategories.filter(c => !categories.includes(c)) } })
 }
