@@ -20,7 +20,7 @@ const client = new MongoClient(url);
 const bot = new Telegraf(process.env.TG_BOT_ID!);
 
 bot.start(async function(ctx) {
-  if(isPrivateChat(ctx)) {
+  if(!isPrivateChat(ctx)) {
     ctx.reply('Please use this command in private chat.');
     return;
   }
@@ -40,7 +40,7 @@ You can control me with:
 
 // Command to list all tokens
 bot.command('list', async function (ctx) {
-  if(isPrivateChat(ctx)) {
+  if(!isPrivateChat(ctx)) {
     ctx.reply('Please use this command in private chat.');
     return;
   }
@@ -91,8 +91,6 @@ bot.command('remind', async function (ctx) {
   }
 })
 
-let callConfig: Map<number, CallConversation> = new Map();
-
 bot.command('config', async function (ctx) {
   const isFromPrivateChat = isPrivateChat(ctx)
   
@@ -111,7 +109,7 @@ bot.command('config', async function (ctx) {
 
     if (section === "categories") {
       if (subCommand === "add") {
-        const categories = args[4]?.split(' ')
+        const categories = args[4]?.toLocaleLowerCase().split(' ')
         if (categories.length) {
           addCategories({ client, groupId, categories })
         }
@@ -128,7 +126,7 @@ bot.command('config', async function (ctx) {
 let callConversations: Map<number, CallConversation> = new Map();
 
 bot.command('call', (ctx) => {
-  if(isPrivateChat(ctx)) {
+  if(!isPrivateChat(ctx)) {
     ctx.reply('Please use this command in private chat.');
     return;
   }
@@ -180,7 +178,7 @@ bot.on(message('text'), async function (ctx) {
   // Guess the intent
   const callConversation = callConversations.get(ctx.chat.id);
   if (callConversation) {
-    continueCallConversation(bot, ctx, callConversation, callConversations)
+    continueCallConversation({ bot, client, ctx, conversation: callConversation, conversations: callConversations })
   }
 
   if (ctx.message.message_thread_id?.toString() === process.env.CALL_CHAN) {

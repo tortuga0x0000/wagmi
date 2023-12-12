@@ -85,6 +85,7 @@ export interface Call {
 export enum CallConversationState {
   new,
   ticker,
+  categories,
   reason,
   type,
   entry,
@@ -106,9 +107,16 @@ export type CallConversation =
   data: { ticker: string }
 }
 | {
+  step: CallConversationState.categories
+  data: { 
+    ticker: string
+    categories: string[]
+  }
+}| {
   step: CallConversationState.reason
   data: { 
     ticker: string
+    categories: string[]
     reason: string
   }
 }
@@ -116,6 +124,7 @@ export type CallConversation =
   step: CallConversationState.type
   data: {
     ticker: string
+    categories: string[]
     reason: string
     type: CallType | null
   }
@@ -124,6 +133,7 @@ export type CallConversation =
   step: CallConversationState.entry
   data: {
     ticker: string
+    categories: string[]
     reason: string
     type: CallType | null
     entries: string[] | null
@@ -133,6 +143,7 @@ export type CallConversation =
   step: CallConversationState.exit
   data: {
     ticker: string
+    categories: string[]
     reason: string
     type: CallType | null
     entries: string[] | null
@@ -143,6 +154,7 @@ export type CallConversation =
   step: CallConversationState.stopLoss
   data:{
     ticker: string
+    categories: string[]
     reason: string
     type: CallType | null
     entries: string[] | null
