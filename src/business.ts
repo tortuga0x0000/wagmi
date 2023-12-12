@@ -316,7 +316,7 @@ export async function continueCallConversation(
         const existingCategories = (await getConfig(client, Number(process.env.CHAT_ID!)))?.categories ?? []
         // Reaction
         ctx.reply(`Enter the narratives from the following list, separated with a space:\n${existingCategories.map(c => `\n - ${c}`).join('')}`);
-        
+
       } else {
         ctx.reply(`Please check the ticker format:
           - can start with $
@@ -397,21 +397,22 @@ export async function continueCallConversation(
     case CallConversationState.exit:
       const sl = getNumbers(ctx.message.text)
       if (sl === NA_VALUE || sl.length === 1) {
-        bot.telegram.sendMessage(-1002123255613, `
-🧐 *Author*: @${ctx.message.from.username}
-💲 *Symbol*: $${conversation.data.ticker}
-🏷️ *Categories*: ${conversation.data.categories.join(' ')}
-💡 *Reason*: ${conversation.data.reason}
+        const callMsg = `
+🧐 *Author*: @${escapeMarkdownV2(ctx.message.from.username ?? 'anon')}
+💲 *Symbol*: $${escapeMarkdownV2(conversation.data.ticker)}
+🏷️ *Categories*: ${escapeMarkdownV2(conversation.data.categories.join(' '))}
+💡 *Reason*: ${escapeMarkdownV2(conversation.data.reason)}
 ${conversation.data.type !== NA_VALUE
-            ? `${conversation.data.type === CallType.long ? '📈' : '📉'} *Type*: ${conversation.data.type}`
+            ? `${conversation.data.type === CallType.long ? '📈' : '📉'} *Type*: ${conversation.data.type}\n`
             : ''}${conversation.data.entries !== NA_VALUE
-              ? `🚪 *Entry*: ${conversation.data.entries.map(p => `$${p}`)}`
+              ? `🚪 *Entry*: ${conversation.data.entries.map(p => `$${p}`)}\n`
               : ''}${conversation.data.targets !== NA_VALUE
-                ? `🎯 *Targets*: ${conversation.data.targets.map(p => `$${p}`)}`
+                ? `🎯 *Targets*: ${conversation.data.targets.map(p => `$${p}`)}\n`
                 : ''}${sl !== NA_VALUE
-                  ? `🛟 *Stop loss*: $${sl[0]}`
+                  ? `🛟 *Stop loss*: $${sl[0]}\n`
                   : ''}
-                  `, { message_thread_id: 2, parse_mode: "Markdown" })
+          `
+        bot.telegram.sendMessage(-1002123255613, callMsg, { message_thread_id: 2, parse_mode: "MarkdownV2" })
         // Clean state
         conversations.delete(ctx.chat.id)
 
@@ -465,4 +466,8 @@ export async function removeCategories({ client, groupId, categories }: { client
   const collection = await getCollection<Config>(client, COLLECTION_NAME.config)
   const existingCategories = (await getConfig(client, groupId))?.categories ?? []
   await collection.updateOne({ groupId }, { $set: { categories: existingCategories.filter(c => !categories.includes(c)) } })
+}
+
+export function escapeMarkdownV2(text: string) {
+  return text.replace(/[_*[\]()~`>#\+\-|={}.!]/g, '\\$&');
 }
