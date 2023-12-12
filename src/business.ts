@@ -445,7 +445,7 @@ function getNumbers(msg: string) {
   if (msg === NA_ANSWER) {
     return NA_VALUE
   }
-  const match = msg.match(/(\d+(\.\d+)?)/g)
+  const match = msg.match(/(\d+([\.,]\d+)?)/g)
   return match ? match.slice() : []
 }
 
