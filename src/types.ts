@@ -39,6 +39,10 @@ export interface DataDoc {
     ticker: string;
     shillers: string[];
     /**
+     * The call links
+     */
+    callURLs?: string[];
+    /**
      * Array of message objects
      */
     messages: {

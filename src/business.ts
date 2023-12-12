@@ -40,12 +40,15 @@ export async function getTokenInfos(client: MongoClient, ticker: string) {
 
   const date = addMs(project)
 
-  return `Information for token: ${ticker}:
-  - last shilled: ${date.toLocaleDateString()} ${date.toLocaleTimeString()}
-  - shilled: ${project.messages.length} times in the group
-  - first shilled by: @${firstMessage.author}
-  - most talkative: @${mostTalkative}
-  - first message: ${firstMessage.url}
+  return `
+Information for token: ${ticker}:
+${project.callURLs?.length ? `
+- call: ${project.callURLs.join(' ')}`: ''}
+- last shilled: ${date.toLocaleDateString()} ${date.toLocaleTimeString()}
+- shilled: ${project.messages.length} times in the group
+- first shilled by: @${firstMessage.author}
+- most talkative: @${mostTalkative}
+- first message: ${firstMessage.url}
 `;
 }
 
@@ -358,7 +361,7 @@ export async function continueCallConversation(
     case CallConversationState.reason:
       // Condition
       const type = ctx.message.text === NA_ANSWER ? NA_VALUE : ctx.message.text
-      if (type === NA_VALUE || isCallType(type)) {
+      if (type == NA_VALUE || isCallType(type)) {
         // Mutation
         conversations.set(ctx.chat.id, {
           step: CallConversationState.type,
@@ -367,7 +370,7 @@ export async function continueCallConversation(
         // Reaction
         ctx.reply('Enter the price entry, separated with a space if multiple entries (eg: "12" or "12 12.5") or "NA" to skip:')
       } else {
-        ctx.reply('Please, enter the type of call price or range (enter "short" or "long") or "NA" to skip:');
+        ctx.reply('Wrong format, type "long" or "short" or "NA" to skip:')
       }
       break;
     case CallConversationState.type:
@@ -379,7 +382,7 @@ export async function continueCallConversation(
         })
         ctx.reply('Enter the price level for exit, separated with a space in case of multiple TPs (eg: "12" or "12 12.5") or "NA" to skip:');
       } else {
-        ctx.reply('Please, enter the price entry, separated with a space if multiple entries (eg: "12" or "12 12.5") or "NA" to skip:')
+        ctx.reply('Wrong format, try again (eg: "12" or "12 12.5") or "NA" to skip:')
       }
       break;
     case CallConversationState.entry:
@@ -391,31 +394,37 @@ export async function continueCallConversation(
         })
         ctx.reply('Enter the stop loss level or "NA" to skip:');
       } else {
-        ctx.reply('Please, enter the price level for exit, separated with a space in case of multiple TPs (eg: "12" or "12 12.5") or "NA" to skip:');
+        ctx.reply('Wrong format, try again (eg: "12" or "12 12.5") or "NA" to skip:');
       }
       break;
     case CallConversationState.exit:
       const sl = getNumbers(ctx.message.text)
-      if (sl === NA_VALUE || sl.length === 1) {
+      if (sl == NA_VALUE || sl.length === 1) {
         const callMsg = `
 🧐 *Author*: @${escapeMarkdownV2(ctx.message.from.username ?? 'anon')}
 💲 *Symbol*: $${escapeMarkdownV2(conversation.data.ticker)}
 🏷️ *Categories*: ${escapeMarkdownV2(conversation.data.categories.join(' '))}
 💡 *Reason*: ${escapeMarkdownV2(conversation.data.reason)}
-${conversation.data.type !== NA_VALUE
+${conversation.data.type != NA_VALUE
             ? `${conversation.data.type === CallType.long ? '📈' : '📉'} *Type*: ${conversation.data.type}\n`
-            : ''}${conversation.data.entries !== NA_VALUE
+            : ''}${conversation.data.entries != NA_VALUE
               ? `🚪 *Entry*: ${conversation.data.entries.map(p => `$${p}`)}\n`
-              : ''}${conversation.data.targets !== NA_VALUE
+              : ''}${conversation.data.targets != NA_VALUE
                 ? `🎯 *Targets*: ${conversation.data.targets.map(p => `$${p}`)}\n`
-                : ''}${sl !== NA_VALUE
+                : ''}${sl != NA_VALUE
                   ? `🛟 *Stop loss*: $${sl[0]}\n`
                   : ''}
           `
-        bot.telegram.sendMessage(-1002123255613, callMsg, { message_thread_id: 2, parse_mode: "MarkdownV2" })
+        const callId = (await bot.telegram.sendMessage(Number(`-100${process.env.CHAT_ID}`), callMsg, { message_thread_id: 2, parse_mode: "MarkdownV2" }))?.message_id
         // Clean state
-        conversations.delete(ctx.chat.id)
+        conversations.delete(ctx.chat.id);
 
+        const collection = await getCollection<DataDoc>(client, COLLECTION_NAME.data)
+        collection.updateOne({ ticker: conversation.data.ticker.toUpperCase() }, { $addToSet: { callURLs: `https://t.me/c/${process.env.CHAT_ID}/${callId}` }})
+
+        // Reactions
+        conversations.delete(ctx.chat.id) // Clean state
+        
         ctx.reply("Call successfully added")
       } else {
         ctx.reply('Please, enter The stop loss level. Just one number (eg: 12.5) or "NA" to skip:');
