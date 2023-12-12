@@ -360,8 +360,8 @@ export async function continueCallConversation(
       break;
     case CallConversationState.reason:
       // Condition
-      const type = ctx.message.text === NA_ANSWER ? NA_VALUE : ctx.message.text
-      if (type == NA_VALUE || isCallType(type)) {
+      const type = ctx.message.text.toUpperCase() === NA_ANSWER ? NA_VALUE : ctx.message.text
+      if (type === NA_VALUE || isCallType(type)) {
         // Mutation
         conversations.set(ctx.chat.id, {
           step: CallConversationState.type,
@@ -375,7 +375,7 @@ export async function continueCallConversation(
       break;
     case CallConversationState.type:
       const entries = getNumbers(ctx.message.text)
-      if (entries?.length || ctx.message.text === NA_ANSWER) {
+      if (entries?.length || entries === NA_VALUE) {
         conversations.set(ctx.chat.id, {
           step: CallConversationState.entry,
           data: { ...conversation.data, entries }
@@ -387,7 +387,7 @@ export async function continueCallConversation(
       break;
     case CallConversationState.entry:
       const targets = getNumbers(ctx.message.text)
-      if (targets?.length || ctx.message.text === NA_ANSWER) {
+      if (targets?.length || targets === NA_VALUE) {
         conversations.set(ctx.chat.id, {
           step: CallConversationState.exit,
           data: { ...conversation.data, targets }
@@ -399,19 +399,19 @@ export async function continueCallConversation(
       break;
     case CallConversationState.exit:
       const sl = getNumbers(ctx.message.text)
-      if (sl == NA_VALUE || sl.length === 1) {
+      if (sl === NA_VALUE || sl.length === 1) {
         const callMsg = `
 🧐 *Author*: @${escapeMarkdownV2(ctx.message.from.username ?? 'anon')}
 💲 *Symbol*: $${escapeMarkdownV2(conversation.data.ticker)}
 🏷️ *Categories*: ${escapeMarkdownV2(conversation.data.categories.join(' '))}
 💡 *Reason*: ${escapeMarkdownV2(conversation.data.reason)}
-${conversation.data.type != NA_VALUE
+${conversation.data.type !== NA_VALUE
             ? `${conversation.data.type === CallType.long ? '📈' : '📉'} *Type*: ${conversation.data.type}\n`
-            : ''}${conversation.data.entries != NA_VALUE
+            : ''}${conversation.data.entries !== NA_VALUE
               ? `🚪 *Entry*: ${escapeMarkdownV2(conversation.data.entries.map(p => `$${p}`).join(' '))}\n`
-              : ''}${conversation.data.targets != NA_VALUE
+              : ''}${conversation.data.targets !== NA_VALUE
                 ? `🎯 *Targets*: ${escapeMarkdownV2(conversation.data.targets.map(p => `$${p}`).join(' '))}\n`
-                : ''}${sl != NA_VALUE
+                : ''}${sl !== NA_VALUE
                   ? `🛟 *Stop loss*: $${sl[0]}\n`
                   : ''}
           `
@@ -442,7 +442,7 @@ function isValidTicker(ticker: string) {
 }
 
 function getNumbers(msg: string) {
-  if (msg === NA_ANSWER) {
+  if (msg.toUpperCase() === NA_ANSWER) {
     return NA_VALUE
   }
   const match = msg.match(/(\d+([\.,]\d+)?)/g)
