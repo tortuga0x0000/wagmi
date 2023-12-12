@@ -9,7 +9,7 @@ import { CallbackQuery, Message, Update } from "telegraf/typings/core/types/type
 
 const remindersTimeoutHandlers: TimerHandler[] = []
 
-const tickerRegex = /\$(?![0-9]+([kKmMbB][sS]?)?\b)(?!(0[xX][a-fA-F0-9]{40})\b)[a-zA-Z0-9]+/gm; // Ticker regex
+const tickerRegex = /(?!\$\d+[kKmMbBtT][nNsS]{0,2})(?!\$\d+\b)(\$\w+)|\d?([A-Z]{3,}\b)/gm; // Ticker regex
 
 export function getTickers(message: string) {
   const tickers = message.match(tickerRegex) ?? [];
