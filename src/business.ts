@@ -412,7 +412,7 @@ ${conversation.data.type !== NA_VALUE
               : ''}${conversation.data.targets !== NA_VALUE
                 ? `🎯 *Targets*: ${escapeMarkdownV2(conversation.data.targets.map(p => `$${p}`).join(' '))}\n`
                 : ''}${sl !== NA_VALUE
-                  ? `🛟 *Stop loss*: $${sl[0]}\n`
+                  ? `🛟 *Stop loss*: $${escapeMarkdownV2(sl[0])}\n`
                   : ''}
           `
         const callId = (await bot.telegram.sendMessage(Number(`-100${process.env.CHAT_ID}`), callMsg, { message_thread_id: 2, parse_mode: "MarkdownV2" }))?.message_id
@@ -446,7 +446,7 @@ function getNumbers(msg: string) {
     return NA_VALUE
   }
   const match = msg.match(/(\d*[.,])?\d+/g)
-  return match ? match.slice().map(n => n.replace(',', '.')) : []
+  return match ? match.slice().map(n => n.replace(',', '.').replace(/^\./, '0.')) : []
 }
 
 function isCallType(type: string): type is CallType {
