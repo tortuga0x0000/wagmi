@@ -445,8 +445,8 @@ function getNumbers(msg: string) {
   if (msg.toUpperCase() === NA_ANSWER) {
     return NA_VALUE
   }
-  const match = msg.match(/(\d+([\.,]\d+)?)/g)
-  return match ? match.slice() : []
+  const match = msg.match(/(\d*[.,])?\d+/g)
+  return match ? match.slice().map(n => n.replace(',', '.')) : []
 }
 
 function isCallType(type: string): type is CallType {
