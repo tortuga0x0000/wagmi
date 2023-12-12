@@ -1,6 +1,6 @@
 import { MongoClient, ObjectId, WithId } from "mongodb";
 import { DB_NAME, NA_ANSWER, NA_VALUE, TOKENS_PER_PAGE } from "./constants";
-import { ROUTE, COLLECTION_NAME, DataDoc, ORDER, ReminderDoc, SORTING, CallConversation, CallConversationState, CallType } from "./types";
+import { ROUTE, COLLECTION_NAME, DataDoc, ORDER, ReminderDoc, SORTING, CallConversation, CallConversationState, CallType, Config } from "./types";
 import { Context, Markup, NarrowedContext, Telegraf } from "telegraf";
 import { FmtString } from "telegraf/typings/format";
 import { ExtraEditMessageText } from "telegraf/typings/telegram-types";
@@ -137,7 +137,7 @@ export async function createTokenButtons(client: MongoClient, { page, sortBy, or
   return Markup.inlineKeyboard(rows);
 };
 
-export async function getCollection<T extends DataDoc | ReminderDoc >(client: MongoClient, collectionName: COLLECTION_NAME) {
+export async function getCollection<T extends DataDoc | ReminderDoc | Config >(client: MongoClient, collectionName: COLLECTION_NAME) {
   const db = client.db(DB_NAME);
   const hasCollection = (await db.listCollections({}, { nameOnly: true }).toArray())
     .some(c => c.name === collectionName)
@@ -287,7 +287,7 @@ ${reminder.note ?? ''}`
 }
 
 export function isPrivateChat(ctx: {chat?: { type: string }} & Context<Update>) {
-  return ctx.chat?.type !== 'private'
+  return ctx.chat?.type === 'private'
 }
 
 export async function continueCallConversation(
@@ -411,4 +411,22 @@ function getNumbers(msg: string) {
 
 function isCallType(type: string): type is CallType {
   return type === CallType.long || type === CallType.short
+}
+
+export async function createConfigIfNotExists(client: MongoClient, groupId: number) {
+  const collection = await getCollection<Config>(client, COLLECTION_NAME.config)
+  const config = await collection.findOne({groupId})
+  if (!config) {
+    await collection.insertOne({groupId, categories: []})
+  }
+}
+
+export async function getConfig(client: MongoClient, groupId: number) {
+  const collection = await getCollection<Config>(client, COLLECTION_NAME.config)
+  return await collection.findOne({groupId})
+}
+
+export async function addCategories({ client, groupId, categories }: { client: MongoClient; groupId: number; categories: string[]; }) {
+  const collection = await getCollection<Config>(client, COLLECTION_NAME.config)
+  await collection.updateOne({groupId}, {$addToSet: { categories: { $each: categories } }})
 }

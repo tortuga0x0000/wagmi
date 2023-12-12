@@ -19,7 +19,8 @@ export enum ROUTE {
 
 export enum COLLECTION_NAME {
   data = "data",
-  reminders = "reminders"
+  reminders = "reminders",
+  config = "config",
 }
 
 export type NavParams = { page: number, sortBy: SORTING, order: ORDER }
@@ -148,4 +149,9 @@ export type CallConversation =
     targets: string[] | null
     stopLoss: string
   }
+}
+
+export interface Config {
+  groupId: number
+  categories: string[]
 }

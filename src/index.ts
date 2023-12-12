@@ -2,7 +2,7 @@ import * as dotenv from 'dotenv'
 import { MongoClient } from 'mongodb';
 import { Markup, Telegraf } from 'telegraf'
 import { message } from 'telegraf/filters'
-import { createTokenButtons, editMessageText, getCollection, getMessageURL, getTickers, getTokenInfos, toOrder, toSorting, formatDate, isDate, addReminder, checkTicker, startReminders, startReminder, isPrivateChat, continueCallConversation } from './business';
+import { createTokenButtons, editMessageText, getCollection, getMessageURL, getTickers, getTokenInfos, toOrder, toSorting, formatDate, isDate, addReminder, checkTicker, startReminders, startReminder, isPrivateChat, continueCallConversation, getConfig, addCategories, createConfigIfNotExists } from './business';
 import { DB_NAME } from './constants';
 import { SORTING, ORDER, ROUTE, DataDoc, COLLECTION_NAME, CallConversation, CallConversationState } from './types';
 
@@ -86,6 +86,35 @@ bot.command('remind', async function (ctx) {
           }
         ) 
         ctx.reply(`Reminder set to the ${date} UTC`)
+      }
+    }
+  }
+})
+
+let callConfig: Map<number, CallConversation> = new Map();
+
+bot.command('config', async function (ctx) {
+  const isFromPrivateChat = isPrivateChat(ctx)
+  
+  // Setup a reminder for a specific ticker
+  if (ctx.message.from.username !== "tortuga0x0000") {
+    ctx.reply('Only @tortuga0x0000 can configure it for now.')
+  }
+  const args = ctx.message.text.match(/^\/config( \d+)? (categories) (add|remove) (.*)/)
+  if (args) {
+    const groupId = isFromPrivateChat ? Number(args[1]) : Number(ctx.chat.id.toString().slice(4))
+
+    createConfigIfNotExists(client, groupId)
+
+    const section = args[2]
+    const subCommand = args[3]
+
+    if (section === "categories") {
+      if (subCommand === "add") {
+        const categories = args[4]?.split(' ')
+        if (categories.length) {
+          addCategories({ client, groupId, categories })
+        }
       }
     }
   }
