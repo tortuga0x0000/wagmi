@@ -408,9 +408,9 @@ export async function continueCallConversation(
 ${conversation.data.type != NA_VALUE
             ? `${conversation.data.type === CallType.long ? '📈' : '📉'} *Type*: ${conversation.data.type}\n`
             : ''}${conversation.data.entries != NA_VALUE
-              ? `🚪 *Entry*: ${conversation.data.entries.map(p => `$${p}`)}\n`
+              ? `🚪 *Entry*: ${escapeMarkdownV2(conversation.data.entries.map(p => `$${p}`).join(' '))}\n`
               : ''}${conversation.data.targets != NA_VALUE
-                ? `🎯 *Targets*: ${conversation.data.targets.map(p => `$${p}`)}\n`
+                ? `🎯 *Targets*: ${escapeMarkdownV2(conversation.data.targets.map(p => `$${p}`).join(' '))}\n`
                 : ''}${sl != NA_VALUE
                   ? `🛟 *Stop loss*: $${sl[0]}\n`
                   : ''}
