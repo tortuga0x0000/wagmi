@@ -1,5 +1,5 @@
 import { MongoClient, ObjectId, WithId } from "mongodb";
-import { DB_NAME, TOKENS_PER_PAGE } from "./constants";
+import { DB_NAME, NA_ANSWER, NA_VALUE, TOKENS_PER_PAGE } from "./constants";
 import { ROUTE, COLLECTION_NAME, DataDoc, ORDER, ReminderDoc, SORTING, CallConversation, CallConversationState, CallType } from "./types";
 import { Context, Markup, NarrowedContext, Telegraf } from "telegraf";
 import { FmtString } from "telegraf/typings/format";
@@ -321,68 +321,73 @@ export async function continueCallConversation(
             data: { ...conversation.data, reason: ctx.message.text }
           })
           // Reaction
-          ctx.reply('Enter the type of call ("long" or "short"):');
+          ctx.reply('Enter the type of call ("long" or "short") or "NA" to skip:');
         } else {
           ctx.reply('Please enter a reason for the call.')
         }
         break;
     case CallConversationState.reason:
       // Condition
-      const type = ctx.message.text
-      if (isCallType(type)) {
+      const type = ctx.message.text === NA_ANSWER ? NA_VALUE : ctx.message.text
+      if (type === NA_VALUE || isCallType(type)) {
         // Mutation
         conversations.set(ctx.chat.id, {
           step: CallConversationState.type,
-          data: { ...conversation.data, type }
+          data: { ...conversation.data, type: type }
         })
         // Reaction
-        ctx.reply('Enter the price entry, separated with a space if multiple entries (eg: "12" or "12 12.5")')
+        ctx.reply('Enter the price entry, separated with a space if multiple entries (eg: "12" or "12 12.5") or "NA" to skip:')
       } else {
-        ctx.reply('Please, enter the type of call price or range (enter "short" or "long"):');
+        ctx.reply('Please, enter the type of call price or range (enter "short" or "long") or "NA" to skip:');
       }
       break;
     case CallConversationState.type:
       const entries = getNumbers(ctx.message.text)
-      if (entries.length) {
+      if (entries?.length || ctx.message.text === NA_ANSWER) {
         conversations.set(ctx.chat.id, {
           step: CallConversationState.entry,
           data: { ...conversation.data, entries }
         })
-        ctx.reply('Enter the price level for exit, separated with a space in case of multiple TPs (eg: "12" or "12 12.5").');
+        ctx.reply('Enter the price level for exit, separated with a space in case of multiple TPs (eg: "12" or "12 12.5") or "NA" to skip:');
       } else {
-        ctx.reply('Please, enter the price entry, separated with a space if multiple entries (eg: "12" or "12 12.5")')
+        ctx.reply('Please, enter the price entry, separated with a space if multiple entries (eg: "12" or "12 12.5") or "NA" to skip:')
       }
       break;
-      case CallConversationState.entry:
-        const targets = getNumbers(ctx.message.text)
-        if (targets.length) {
-          conversations.set(ctx.chat.id, {
-            step: CallConversationState.exit,
-            data: { ...conversation.data, targets }
-          })
-          ctx.reply('Enter the stop loss level:');
-        } else {
-          ctx.reply('Please, enter the price level for exit, separated with a space in case of multiple TPs (eg: "12" or "12 12.5").');
-        }
+    case CallConversationState.entry:
+      const targets = getNumbers(ctx.message.text)
+      if (targets?.length || ctx.message.text === NA_ANSWER) {
+        conversations.set(ctx.chat.id, {
+          step: CallConversationState.exit,
+          data: { ...conversation.data, targets }
+        })
+        ctx.reply('Enter the stop loss level or "NA" to skip:');
+      } else {
+        ctx.reply('Please, enter the price level for exit, separated with a space in case of multiple TPs (eg: "12" or "12 12.5") or "NA" to skip:');
+      }
         break;
     case CallConversationState.exit:
         const sl = getNumbers(ctx.message.text)
-        if (sl.length === 1) {
+        if (sl === NA_VALUE || sl.length === 1) {
           bot.telegram.sendMessage(-1002123255613, `
 🧐 *Author*: @${ctx.message.from.username}
 💲 *Symbol*: $${conversation.data.ticker}
-💡 *Reason*: ${conversation.data.reason} 
-${conversation.data.type === CallType.long ? '📈' : '📉'} *Type*: ${conversation.data.type}
-🚪 *Entry*: ${conversation.data.entries.map(p =>`$${p}`)}
-🎯 *Targets*: ${conversation.data.targets.map(p =>`$${p}`)}
-🛟 *Stop loss*: $${sl[0]}
+💡 *Reason*: ${conversation.data.reason}
+${conversation.data.type !== NA_VALUE
+    ? `${conversation.data.type === CallType.long ? '📈' : '📉'} *Type*: ${conversation.data.type}`
+    : ''}${conversation.data.entries !== NA_VALUE
+      ? `🚪 *Entry*: ${conversation.data.entries.map(p =>`$${p}`)}`
+      : ''}${conversation.data.targets !== NA_VALUE
+        ? `🎯 *Targets*: ${conversation.data.targets.map(p =>`$${p}`)}`
+        : ''}${sl !== NA_VALUE
+          ? `🛟 *Stop loss*: $${sl[0]}`
+          : ''}
                   `, { message_thread_id: 2, parse_mode: "Markdown" })
                   // Clean state
                   conversations.delete(ctx.chat.id)
           
                   ctx.reply("Call successfully added")
         } else {
-          ctx.reply('Please, enter The stop loss level. Just one number (eg: 12.5');
+          ctx.reply('Please, enter The stop loss level. Just one number (eg: 12.5) or "NA" to skip:');
         }
         break;
   }
@@ -397,6 +402,9 @@ function isValidTicker(ticker: string) {
 }
 
 function getNumbers(msg: string) {
+  if (msg === NA_ANSWER) {
+    return NA_VALUE
+  }
   const match = msg.match(/(\d+(\.\d+)?)/g)
   return match ? match.slice() : []
 }

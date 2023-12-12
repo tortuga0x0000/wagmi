@@ -116,7 +116,7 @@ export type CallConversation =
   data: {
     ticker: string
     reason: string
-    type: CallType
+    type: CallType | null
   }
 }
 | {
@@ -124,8 +124,8 @@ export type CallConversation =
   data: {
     ticker: string
     reason: string
-    type: CallType
-    entries: string[]
+    type: CallType | null
+    entries: string[] | null
   }
 }
 | {
@@ -133,9 +133,9 @@ export type CallConversation =
   data: {
     ticker: string
     reason: string
-    type: CallType
-    entries: string[]
-    targets: string[]
+    type: CallType | null
+    entries: string[] | null
+    targets: string[] | null
   }
 }
 | {
@@ -143,9 +143,9 @@ export type CallConversation =
   data:{
     ticker: string
     reason: string
-    type: CallType
-    entries: string[]
-    targets: string[]
+    type: CallType | null
+    entries: string[] | null
+    targets: string[] | null
     stopLoss: string
   }
 }
