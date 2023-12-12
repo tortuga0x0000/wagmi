@@ -2,7 +2,7 @@ import * as dotenv from 'dotenv'
 import { MongoClient } from 'mongodb';
 import { Markup, Telegraf } from 'telegraf'
 import { message } from 'telegraf/filters'
-import { createTokenButtons, editMessageText, getCollection, getMessageURL, getTickers, getTokenInfos, toOrder, toSorting, formatDate, isDate, addReminder, checkTicker, startReminders, startReminder, isPrivateChat, continueCallConversation, getConfig, addCategories, createConfigIfNotExists } from './business';
+import { createTokenButtons, editMessageText, getCollection, getMessageURL, getTickers, getTokenInfos, toOrder, toSorting, formatDate, isDate, addReminder, checkTicker, startReminders, startReminder, isPrivateChat, continueCallConversation, getConfig, addCategories, createConfigIfNotExists, removeCategories } from './business';
 import { DB_NAME } from './constants';
 import { SORTING, ORDER, ROUTE, DataDoc, COLLECTION_NAME, CallConversation, CallConversationState } from './types';
 
@@ -114,6 +114,11 @@ bot.command('config', async function (ctx) {
         const categories = args[4]?.split(' ')
         if (categories.length) {
           addCategories({ client, groupId, categories })
+        }
+      } else if (subCommand === "remove") {
+        const categories = args[4]?.split(' ')
+        if (categories.length) {
+          removeCategories({ client, groupId, categories })
         }
       }
     }

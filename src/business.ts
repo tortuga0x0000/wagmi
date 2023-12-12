@@ -430,3 +430,9 @@ export async function addCategories({ client, groupId, categories }: { client: M
   const collection = await getCollection<Config>(client, COLLECTION_NAME.config)
   await collection.updateOne({groupId}, {$addToSet: { categories: { $each: categories } }})
 }
+
+export async function removeCategories({ client, groupId, categories }: { client: MongoClient; groupId: number; categories: string[]; }) {
+  const collection = await getCollection<Config>(client, COLLECTION_NAME.config)
+  const existingCategories = (await getConfig(client, groupId))?.categories ?? []
+  await collection.updateOne({groupId}, {$set: { categories: existingCategories.filter(c => !categories.includes(c)) }})
+}
