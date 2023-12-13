@@ -1,10 +1,11 @@
 import * as dotenv from 'dotenv'
 import { MongoClient } from 'mongodb';
-import { Markup, Telegraf } from 'telegraf'
+import { Context, Markup, Telegraf } from 'telegraf'
 import { message } from 'telegraf/filters'
 import { createTokenButtons, editMessageText, getCollection, getMessageURL, getTickers, getTokenInfos, toOrder, toSorting, formatDate, isDate, addReminder, checkTicker, startReminders, startReminder, isPrivateChat, continueCallConversation, getConfig, addCategories, createConfigIfNotExists, removeCategories } from './business';
 import { DB_NAME } from './constants';
 import { SORTING, ORDER, ROUTE, DataDoc, COLLECTION_NAME, CallConversation, CallConversationState } from './types';
+import { Update, Message } from 'telegraf/typings/core/types/typegram';
 
 dotenv.config(process.env.NODE_ENV === "production" ? { path: __dirname + '/.env' } : undefined);
 
@@ -21,7 +22,7 @@ const bot = new Telegraf(process.env.TG_BOT_ID!);
 
 bot.start(async function(ctx) {
   if(!isPrivateChat(ctx)) {
-    ctx.reply('Please use this command in private chat.');
+    replyNoop(ctx)
     return;
   }
   ctx.reply(`
@@ -41,7 +42,7 @@ You can control me with:
 // Command to list all tokens
 bot.command('list', async function (ctx) {
   if(!isPrivateChat(ctx)) {
-    ctx.reply('Please use this command in private chat.');
+    replyNoop(ctx);
     return;
   }
   const buttons = await createTokenButtons(client, { page: 1, sortBy: SORTING.LAST_MENTION, order: ORDER.DSC });
@@ -127,7 +128,7 @@ let callConversations: Map<number, CallConversation> = new Map();
 
 bot.command('call', (ctx) => {
   if(!isPrivateChat(ctx)) {
-    ctx.reply('Please use this command in private chat.');
+    replyNoop(ctx)
     return;
   }
   const chatId = ctx.chat.id;
@@ -227,6 +228,13 @@ bot.on(message('text'), async function (ctx) {
 bot.catch((err, ctx) => {
   console.error(`Error for ${ctx.updateType}`, err);
 });
+
+function replyNoop(ctx: Context<{
+  message: Update.New & Update.NonChannel & Message.TextMessage;
+  update_id: number;
+}>) {
+  ctx.reply(`Please use this command in private chat with @${ctx.botInfo.username}`);
+}
 
 function getNavParams(queryParams: URLSearchParams) {
   const page = Number(queryParams.get('p'));
