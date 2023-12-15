@@ -40,12 +40,15 @@ export async function getTokenInfos(client: MongoClient, ticker: string) {
 
   const date = addMs(project)
 
-  return `Information for token: ${ticker}:
-  - last shilled: ${date.toLocaleDateString()} ${date.toLocaleTimeString()}
-  - shilled: ${project.messages.length} times in the group
-  - first shilled by: @${firstMessage.author}
-  - most talkative: @${mostTalkative}
-  - first message: ${firstMessage.url}
+  return `
+Information for token: ${ticker}:
+${project.callURLs?.length ? `
+- call: ${project.callURLs.join(' ')}`: ''}
+- last shilled: ${date.toLocaleDateString()} ${date.toLocaleTimeString()}
+- shilled: ${project.messages.length} times in the group
+- first shilled by: @${firstMessage.author}
+- most talkative: @${mostTalkative}
+- first message: ${firstMessage.url}
 `;
 }
 
@@ -316,7 +319,7 @@ export async function continueCallConversation(
         const existingCategories = (await getConfig(client, Number(process.env.CHAT_ID!)))?.categories ?? []
         // Reaction
         ctx.reply(`Enter the narratives from the following list, separated with a space:\n${existingCategories.map(c => `\n - ${c}`).join('')}`);
-        
+
       } else {
         ctx.reply(`Please check the ticker format:
           - can start with $
@@ -357,7 +360,7 @@ export async function continueCallConversation(
       break;
     case CallConversationState.reason:
       // Condition
-      const type = ctx.message.text === NA_ANSWER ? NA_VALUE : ctx.message.text
+      const type = ctx.message.text.toUpperCase() === NA_ANSWER ? NA_VALUE : ctx.message.text
       if (type === NA_VALUE || isCallType(type)) {
         // Mutation
         conversations.set(ctx.chat.id, {
@@ -367,54 +370,61 @@ export async function continueCallConversation(
         // Reaction
         ctx.reply('Enter the price entry, separated with a space if multiple entries (eg: "12" or "12 12.5") or "NA" to skip:')
       } else {
-        ctx.reply('Please, enter the type of call price or range (enter "short" or "long") or "NA" to skip:');
+        ctx.reply('Wrong format, type "long" or "short" or "NA" to skip:')
       }
       break;
     case CallConversationState.type:
       const entries = getNumbers(ctx.message.text)
-      if (entries?.length || ctx.message.text === NA_ANSWER) {
+      if (entries?.length || entries === NA_VALUE) {
         conversations.set(ctx.chat.id, {
           step: CallConversationState.entry,
           data: { ...conversation.data, entries }
         })
         ctx.reply('Enter the price level for exit, separated with a space in case of multiple TPs (eg: "12" or "12 12.5") or "NA" to skip:');
       } else {
-        ctx.reply('Please, enter the price entry, separated with a space if multiple entries (eg: "12" or "12 12.5") or "NA" to skip:')
+        ctx.reply('Wrong format, try again (eg: "12" or "12 12.5") or "NA" to skip:')
       }
       break;
     case CallConversationState.entry:
       const targets = getNumbers(ctx.message.text)
-      if (targets?.length || ctx.message.text === NA_ANSWER) {
+      if (targets?.length || targets === NA_VALUE) {
         conversations.set(ctx.chat.id, {
           step: CallConversationState.exit,
           data: { ...conversation.data, targets }
         })
         ctx.reply('Enter the stop loss level or "NA" to skip:');
       } else {
-        ctx.reply('Please, enter the price level for exit, separated with a space in case of multiple TPs (eg: "12" or "12 12.5") or "NA" to skip:');
+        ctx.reply('Wrong format, try again (eg: "12" or "12 12.5") or "NA" to skip:');
       }
       break;
     case CallConversationState.exit:
       const sl = getNumbers(ctx.message.text)
       if (sl === NA_VALUE || sl.length === 1) {
-        bot.telegram.sendMessage(-1002123255613, `
-🧐 *Author*: @${ctx.message.from.username}
-💲 *Symbol*: $${conversation.data.ticker}
-🏷️ *Categories*: ${conversation.data.categories.join(' ')}
-💡 *Reason*: ${conversation.data.reason}
+        const callMsg = `
+🧐 *Author*: @${escapeMarkdownV2(ctx.message.from.username ?? 'anon')}
+💲 *Symbol*: $${escapeMarkdownV2(conversation.data.ticker)}
+🏷️ *Categories*: ${escapeMarkdownV2(conversation.data.categories.join(' '))}
+💡 *Reason*: ${escapeMarkdownV2(conversation.data.reason)}
 ${conversation.data.type !== NA_VALUE
-            ? `${conversation.data.type === CallType.long ? '📈' : '📉'} *Type*: ${conversation.data.type}`
+            ? `${conversation.data.type === CallType.long ? '📈' : '📉'} *Type*: ${conversation.data.type}\n`
             : ''}${conversation.data.entries !== NA_VALUE
-              ? `🚪 *Entry*: ${conversation.data.entries.map(p => `$${p}`)}`
+              ? `🚪 *Entry*: ${escapeMarkdownV2(conversation.data.entries.map(p => `$${p}`).join(' '))}\n`
               : ''}${conversation.data.targets !== NA_VALUE
-                ? `🎯 *Targets*: ${conversation.data.targets.map(p => `$${p}`)}`
+                ? `🎯 *Targets*: ${escapeMarkdownV2(conversation.data.targets.map(p => `$${p}`).join(' '))}\n`
                 : ''}${sl !== NA_VALUE
-                  ? `🛟 *Stop loss*: $${sl[0]}`
+                  ? `🛟 *Stop loss*: $${escapeMarkdownV2(sl[0])}\n`
                   : ''}
-                  `, { message_thread_id: 2, parse_mode: "Markdown" })
+          `
+        const callId = (await bot.telegram.sendMessage(Number(`-100${process.env.CHAT_ID}`), callMsg, { message_thread_id: 2, parse_mode: "MarkdownV2" }))?.message_id
         // Clean state
-        conversations.delete(ctx.chat.id)
+        conversations.delete(ctx.chat.id);
 
+        const collection = await getCollection<DataDoc>(client, COLLECTION_NAME.data)
+        collection.updateOne({ ticker: conversation.data.ticker.toUpperCase() }, { $addToSet: { callURLs: `https://t.me/c/${process.env.CHAT_ID}/${callId}` }})
+
+        // Reactions
+        conversations.delete(ctx.chat.id) // Clean state
+        
         ctx.reply("Call successfully added")
       } else {
         ctx.reply('Please, enter The stop loss level. Just one number (eg: 12.5) or "NA" to skip:');
@@ -432,11 +442,11 @@ function isValidTicker(ticker: string) {
 }
 
 function getNumbers(msg: string) {
-  if (msg === NA_ANSWER) {
+  if (msg.toUpperCase() === NA_ANSWER) {
     return NA_VALUE
   }
-  const match = msg.match(/(\d+(\.\d+)?)/g)
-  return match ? match.slice() : []
+  const match = msg.match(/(\d*[.,])?\d+/g)
+  return match ? match.slice().map(n => n.replace(',', '.').replace(/^\./, '0.')) : []
 }
 
 function isCallType(type: string): type is CallType {
@@ -465,4 +475,8 @@ export async function removeCategories({ client, groupId, categories }: { client
   const collection = await getCollection<Config>(client, COLLECTION_NAME.config)
   const existingCategories = (await getConfig(client, groupId))?.categories ?? []
   await collection.updateOne({ groupId }, { $set: { categories: existingCategories.filter(c => !categories.includes(c)) } })
+}
+
+export function escapeMarkdownV2(text: string) {
+  return text.replace(/[_*[\]()~`>#\+\-|={}.!]/g, '\\$&');
 }

@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.0.1-alpha.17](https://github.com/tortuga0x0000/wagmi/compare/v0.0.1-alpha.15...v0.0.1-alpha.17) (2023-12-15)
+
+
+### Features
+
+* add config command ([f810af7](https://github.com/tortuga0x0000/wagmi/commit/f810af71b95838df973eeea62e42877c54a0d37b))
+* add reminder command ([3cebf67](https://github.com/tortuga0x0000/wagmi/commit/3cebf6789bc7aee81775e27c54874fe857a1051b))
+* add reminder command ([3935691](https://github.com/tortuga0x0000/wagmi/commit/39356913e9a83bb1f2fed4471a1e1a2452cc2cfe))
+* call commands ([efcc14b](https://github.com/tortuga0x0000/wagmi/commit/efcc14bc8bcc2a3b6f632269aab08e63fd6c3d27))
+* remove categories ([3ef4b53](https://github.com/tortuga0x0000/wagmi/commit/3ef4b53630bd2819151f91cbb2f5cf6482d42be2))
+
+
+### Bug Fixes
+
+* "undefined" note ([e71358b](https://github.com/tortuga0x0000/wagmi/commit/e71358b4445eb756a971b4021f445216d41d9d00))
+* dot notation ([51be576](https://github.com/tortuga0x0000/wagmi/commit/51be5768be46d6e8b26313a9afda829c70c7bc62))
+* numbers ([a86da39](https://github.com/tortuga0x0000/wagmi/commit/a86da39015c8713caaabc9cbb432c8c1abc34e78))
+* reminders does not restart after reboot ([56dc72c](https://github.com/tortuga0x0000/wagmi/commit/56dc72c321a3a550c60f60dab243bee9f4ace2bf))
+* unescape md ([adf7603](https://github.com/tortuga0x0000/wagmi/commit/adf76030cda9bdb261459c2c61b6bc1f79a62041))
+* unescaped ([d4c35f2](https://github.com/tortuga0x0000/wagmi/commit/d4c35f288be07c2068d5cbddb93344b80a9090d9))
+
 ### [0.0.1-alpha.16](https://github.com/tortuga0x0000/wagmi/compare/v0.0.1-alpha.15...v0.0.1-alpha.16) (2023-12-05)
 
 
