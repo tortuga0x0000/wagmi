@@ -1,10 +1,11 @@
 import * as dotenv from 'dotenv'
 import { MongoClient } from 'mongodb';
-import { Markup, Telegraf } from 'telegraf'
+import { Context, Markup, Telegraf } from 'telegraf'
 import { message } from 'telegraf/filters'
-import { createTokenButtons, editMessageText, getCollection, getMessageURL, getTickers, getTokenInfos, toOrder, toSorting, formatDate, isDate, addReminder, checkTicker, startReminders, startReminder } from './business';
+import { createTokenButtons, editMessageText, getCollection, getMessageURL, getTickers, getTokenInfos, toOrder, toSorting, formatDate, isDate, addReminder, checkTicker, startReminders, startReminder, isPrivateChat, continueCallConversation, getConfig, addCategories, createConfigIfNotExists, removeCategories } from './business';
 import { DB_NAME } from './constants';
-import { SORTING, ORDER, ROUTE, DataDoc, COLLECTION_NAME } from './types';
+import { SORTING, ORDER, ROUTE, DataDoc, COLLECTION_NAME, CallConversation, CallConversationState } from './types';
+import { Update, Message } from 'telegraf/typings/core/types/typegram';
 
 dotenv.config(process.env.NODE_ENV === "production" ? { path: __dirname + '/.env' } : undefined);
 
@@ -20,29 +21,33 @@ const client = new MongoClient(url);
 const bot = new Telegraf(process.env.TG_BOT_ID!);
 
 bot.start(async function(ctx) {
+  if(!isPrivateChat(ctx)) {
+    replyNoop(ctx)
+    return;
+  }
   ctx.reply(`
 Hello ${ctx.from.username},
 I am your new assistant to help you organize the information of your favorite group. I capture messages of the group as soon I read a $TOKEN or $token. So be careful how do you write it.
 
 You can control me with:
 - /list to display a list of all projects which has been shilled.
+- /call to add a call in the call topic
 - /remind to send you a programmed DM about a ticker at a specific date.
   - The date needs to be in UTC
   - You can provide a specific note (optional)
   - Eg: /remind BTC ${formatDate(new Date(Date.now() + 3600000))} buy some BTC
-  `)
+  `,)
 })
 
 // Command to list all tokens
 bot.command('list', async function (ctx) {
-  if (ctx.chat.type !== 'private') {
-    ctx.reply('Please use this command in private chat.');
+  if(!isPrivateChat(ctx)) {
+    replyNoop(ctx);
     return;
   }
   const buttons = await createTokenButtons(client, { page: 1, sortBy: SORTING.LAST_MENTION, order: ORDER.DSC });
   ctx.reply('Select a token:', buttons);
 });
-
 bot.command('remind', async function (ctx) {
   // Setup a reminder for a specific ticker
   const args = ctx.message.text.match(/^\/remind ([A-Z\d]+)\s(\d{4}-\d{2}-\d{2}\s\d{2}:\d{2})(\s.+)?/)
@@ -87,6 +92,52 @@ bot.command('remind', async function (ctx) {
   }
 })
 
+bot.command('config', async function (ctx) {
+  const isFromPrivateChat = isPrivateChat(ctx)
+  
+  // Setup a reminder for a specific ticker
+  if (ctx.message.from.username !== "tortuga0x0000") {
+    ctx.reply('Only @tortuga0x0000 can configure it for now.')
+  }
+  const args = ctx.message.text.match(/^\/config( \d+)? (categories) (add|remove) (.*)/)
+  if (args) {
+    const groupId = isFromPrivateChat ? Number(args[1]) : Number(ctx.chat.id.toString().slice(4))
+
+    createConfigIfNotExists(client, groupId)
+
+    const section = args[2]
+    const subCommand = args[3]
+
+    if (section === "categories") {
+      if (subCommand === "add") {
+        const categories = args[4]?.toLocaleLowerCase().split(' ')
+        if (categories.length) {
+          addCategories({ client, groupId, categories })
+        }
+      } else if (subCommand === "remove") {
+        const categories = args[4]?.split(' ')
+        if (categories.length) {
+          removeCategories({ client, groupId, categories })
+        }
+      }
+    }
+  }
+})
+
+let callConversations: Map<number, CallConversation> = new Map();
+
+bot.command('call', (ctx) => {
+  if(!isPrivateChat(ctx)) {
+    replyNoop(ctx)
+    return;
+  }
+  const chatId = ctx.chat.id;
+  const conversation = { step: CallConversationState.new }
+  callConversations.set(chatId, conversation as any) // FIX: tagged type
+
+  ctx.reply("Enter the ticker:")
+})
+
 // Handling info
 bot.action(new RegExp(`(${ROUTE.info}\\?)(.+)`), async function (ctx) { // Note the double \\ to escape the ? because we use a template litteral
   // Parse the query payload
@@ -126,6 +177,14 @@ bot.action(new RegExp(`(${ROUTE.reminders}\\?)(.+)`), async (ctx) => {
 // WARNING: always declare this handler last otherwise it will swallow the bot commands
 bot.on(message('text'), async function (ctx) {
   // Guess the intent
+  const callConversation = callConversations.get(ctx.chat.id);
+  if (callConversation) {
+    continueCallConversation({ bot, client, ctx, conversation: callConversation, conversations: callConversations })
+  }
+
+  if (ctx.message.message_thread_id?.toString() === process.env.CALL_CHAN) {
+    ctx.deleteMessage(ctx.message.message_id)
+  }
 
   // Add some new projects shilled in group chat
   if (ctx.message.chat.type !== "private") {
@@ -169,6 +228,13 @@ bot.on(message('text'), async function (ctx) {
 bot.catch((err, ctx) => {
   console.error(`Error for ${ctx.updateType}`, err);
 });
+
+function replyNoop(ctx: Context<{
+  message: Update.New & Update.NonChannel & Message.TextMessage;
+  update_id: number;
+}>) {
+  ctx.reply(`Please use this command in private chat with @${ctx.botInfo.username}`);
+}
 
 function getNavParams(queryParams: URLSearchParams) {
   const page = Number(queryParams.get('p'));
