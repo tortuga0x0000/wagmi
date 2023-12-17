@@ -415,7 +415,7 @@ ${conversation.data.type !== NA_VALUE
                   ? `🛟 *Stop loss*: $${escapeMarkdownV2(sl[0])}\n`
                   : ''}
           `
-        const callId = (await bot.telegram.sendMessage(Number(`-100${process.env.CHAT_ID}`), callMsg, { message_thread_id: 2, parse_mode: "MarkdownV2" }))?.message_id
+        const callId = (await bot.telegram.sendMessage(Number(`-100${process.env.CHAT_ID}`), callMsg, { message_thread_id: Number(process.env.CALL_CHAN!), parse_mode: "MarkdownV2" }))?.message_id
         // Clean state
         conversations.delete(ctx.chat.id);
 
