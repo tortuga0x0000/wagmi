@@ -174,6 +174,13 @@ bot.action(new RegExp(`(${ROUTE.reminders}\\?)(.+)`), async (ctx) => {
   const { page, sortBy, order } = getNavParams(queryParams);
 })
 
+bot.on(message('photo'), ctx => {
+  const callConversation = callConversations.get(ctx.chat.id);
+  if (callConversation) {
+    continueCallConversation({ bot, client, ctx, conversation: callConversation, conversations: callConversations })
+  }
+})
+
 // WARNING: always declare this handler last otherwise it will swallow the bot commands
 bot.on(message('text'), async function (ctx) {
   // Guess the intent

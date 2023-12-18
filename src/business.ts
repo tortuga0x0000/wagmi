@@ -43,7 +43,7 @@ export async function getTokenInfos(client: MongoClient, ticker: string) {
   return `
 Information for token: ${ticker}:
 ${project.callURLs?.length ? `
-- call: ${project.callURLs.join(' ')}`: ''}
+- call: ${project.callURLs.join(' ')}` : ''}
 - last shilled: ${date.toLocaleDateString()} ${date.toLocaleTimeString()}
 - shilled: ${project.messages.length} times in the group
 - first shilled by: @${firstMessage.author}
@@ -303,14 +303,16 @@ export async function continueCallConversation(
   }: {
     bot: Telegraf;
     client: MongoClient
-    ctx: NarrowedContext<Context<Update>, Update.MessageUpdate<Record<"text", {}> & Message.TextMessage>>
+    ctx: 
+      | NarrowedContext<Context<Update>, Update.MessageUpdate<Record<"text", {}> & Message.TextMessage>>
+      | NarrowedContext<Context<Update>, Update.MessageUpdate<Record<"photo", {}> & Message.PhotoMessage>>
     conversation: CallConversation
     conversations: Map<number, CallConversation>
   }) {
   switch (conversation.step) {
     case CallConversationState.new:
       // Condition
-      if (isValidTicker(ctx.message.text)) {
+      if (isText(ctx) && isValidTicker(ctx.message.text)) {
         // Mutation
         conversations.set(ctx.chat.id, {
           step: CallConversationState.ticker,
@@ -330,27 +332,31 @@ export async function continueCallConversation(
       break;
     case CallConversationState.ticker:
       // Condition
-      const inputCategories = ctx.message.text.toLocaleLowerCase().split(' ')
-      const existingCategories = (await getConfig(client, Number(process.env.CHAT_ID!)))?.categories ?? []
-      const validatedCategories = inputCategories.filter(c => existingCategories.includes(c))
-      if (validatedCategories.length === inputCategories.length) {
-        conversations.set(ctx.chat.id, {
-          step: CallConversationState.categories,
-          data: { ...conversation.data, categories: validatedCategories }
-        })
-        // Reaction
-        ctx.reply('Enter the reason of the call:');
-      } else {
-        ctx.reply('Some categories are not part of the available list.')
-        ctx.reply(`Please, enter the narratives from the following list, separated with a space:\n${existingCategories.map(c => `\n - ${c}`).join('')}`);
+      if (isText(ctx)) {
+        const inputCategories = ctx.message.text.toLocaleLowerCase().split(' ')
+        const existingCategories = (await getConfig(client, Number(process.env.CHAT_ID!)))?.categories ?? []
+        const validatedCategories = inputCategories.filter(c => existingCategories.includes(c))
+        if (validatedCategories.length === inputCategories.length) {
+          conversations.set(ctx.chat.id, {
+            step: CallConversationState.categories,
+            data: { ...conversation.data, categories: validatedCategories }
+          })
+          // Reaction
+          ctx.reply('Enter the reason of the call:');
+        } else {
+          ctx.reply('Some categories are not part of the available list.')
+          ctx.reply(`Please, enter the narratives from the following list, separated with a space:\n${existingCategories.map(c => `\n - ${c}`).join('')}`);
+        }
       }
       break;
     case CallConversationState.categories:
       // Condition
-      if (ctx.message.text.length) {
+      const text = isText(ctx) ? ctx.message.text : ctx.message.caption
+      const photo = isPhoto(ctx) ? ctx.message.photo.at(-1)?.file_id : undefined
+      if (text?.length) {
         conversations.set(ctx.chat.id, {
           step: CallConversationState.reason,
-          data: { ...conversation.data, reason: ctx.message.text }
+          data: { ...conversation.data, reason: { text, photo } }
         })
         // Reaction
         ctx.reply('Enter the type of call ("long" or "short") or "NA" to skip:');
@@ -360,74 +366,96 @@ export async function continueCallConversation(
       break;
     case CallConversationState.reason:
       // Condition
-      const type = ctx.message.text.toUpperCase() === NA_ANSWER ? NA_VALUE : ctx.message.text
-      if (type === NA_VALUE || isCallType(type)) {
-        // Mutation
-        conversations.set(ctx.chat.id, {
-          step: CallConversationState.type,
-          data: { ...conversation.data, type: type }
-        })
-        // Reaction
-        ctx.reply('Enter the price entry, separated with a space if multiple entries (eg: "12" or "12 12.5") or "NA" to skip:')
+      if (isText(ctx)) {
+        const type = ctx.message.text.toUpperCase() === NA_ANSWER ? NA_VALUE : ctx.message.text
+        if (type === NA_VALUE || isCallType(type)) {
+          // Mutation
+          conversations.set(ctx.chat.id, {
+            step: CallConversationState.type,
+            data: { ...conversation.data, type: type }
+          })
+          // Reaction
+          ctx.reply('Enter the price entry, separated with a space if multiple entries (eg: "12" or "12 12.5") or "NA" to skip:')
+        } else {
+          ctx.reply('Wrong format, type "long" or "short" or "NA" to skip:')
+        }
       } else {
-        ctx.reply('Wrong format, type "long" or "short" or "NA" to skip:')
+        ctx.reply('Send only text.')
       }
       break;
     case CallConversationState.type:
-      const entries = getNumbers(ctx.message.text)
-      if (entries?.length || entries === NA_VALUE) {
-        conversations.set(ctx.chat.id, {
-          step: CallConversationState.entry,
-          data: { ...conversation.data, entries }
-        })
-        ctx.reply('Enter the price level for exit, separated with a space in case of multiple TPs (eg: "12" or "12 12.5") or "NA" to skip:');
+      if (isText(ctx)) {
+        const entries = getNumbers(ctx.message.text)
+        if (entries?.length || entries === NA_VALUE) {
+          conversations.set(ctx.chat.id, {
+            step: CallConversationState.entry,
+            data: { ...conversation.data, entries }
+          })
+          ctx.reply('Enter the price level for exit, separated with a space in case of multiple TPs (eg: "12" or "12 12.5") or "NA" to skip:');
+        } else {
+          ctx.reply('Wrong format, try again (eg: "12" or "12 12.5") or "NA" to skip:')
+        }
       } else {
-        ctx.reply('Wrong format, try again (eg: "12" or "12 12.5") or "NA" to skip:')
+        ctx.reply('Send only text.')
       }
       break;
     case CallConversationState.entry:
-      const targets = getNumbers(ctx.message.text)
-      if (targets?.length || targets === NA_VALUE) {
-        conversations.set(ctx.chat.id, {
-          step: CallConversationState.exit,
-          data: { ...conversation.data, targets }
-        })
-        ctx.reply('Enter the stop loss level or "NA" to skip:');
+      if (isText(ctx)) {
+        const targets = getNumbers(ctx.message.text)
+        if (targets?.length || targets === NA_VALUE) {
+          conversations.set(ctx.chat.id, {
+            step: CallConversationState.exit,
+            data: { ...conversation.data, targets }
+          })
+          ctx.reply('Enter the stop loss level or "NA" to skip:');
+        } else {
+          ctx.reply('Wrong format, try again (eg: "12" or "12 12.5") or "NA" to skip:');
+        }
       } else {
-        ctx.reply('Wrong format, try again (eg: "12" or "12 12.5") or "NA" to skip:');
+        ctx.reply('Send only text.')
       }
       break;
     case CallConversationState.exit:
-      const sl = getNumbers(ctx.message.text)
-      if (sl === NA_VALUE || sl.length === 1) {
-        const callMsg = `
-🧐 *Author*: @${escapeMarkdownV2(ctx.message.from.username ?? 'anon')}
-💲 *Symbol*: $${escapeMarkdownV2(conversation.data.ticker)}
-🏷️ *Categories*: ${escapeMarkdownV2(conversation.data.categories.join(' '))}
-💡 *Reason*: ${escapeMarkdownV2(conversation.data.reason)}
-${conversation.data.type !== NA_VALUE
-            ? `${conversation.data.type === CallType.long ? '📈' : '📉'} *Type*: ${conversation.data.type}\n`
-            : ''}${conversation.data.entries !== NA_VALUE
-              ? `🚪 *Entry*: ${escapeMarkdownV2(conversation.data.entries.map(p => `$${p}`).join(' '))}\n`
-              : ''}${conversation.data.targets !== NA_VALUE
-                ? `🎯 *Targets*: ${escapeMarkdownV2(conversation.data.targets.map(p => `$${p}`).join(' '))}\n`
-                : ''}${sl !== NA_VALUE
-                  ? `🛟 *Stop loss*: $${escapeMarkdownV2(sl[0])}\n`
-                  : ''}
-          `
-        const callId = (await bot.telegram.sendMessage(Number(`-100${process.env.CHAT_ID}`), callMsg, { message_thread_id: Number(process.env.CALL_CHAN!), parse_mode: "MarkdownV2" }))?.message_id
-        // Clean state
-        conversations.delete(ctx.chat.id);
+      if (isText(ctx)) {
+        const sl = getNumbers(ctx.message.text)
+        if (sl === NA_VALUE || sl.length === 1) {
+          const callMsg = `
+  🧐 *Author*: @${escapeMarkdownV2(ctx.message.from.username ?? 'anon')}
+  💲 *Symbol*: $${escapeMarkdownV2(conversation.data.ticker)}
+  🏷️ *Categories*: ${escapeMarkdownV2(conversation.data.categories.join(' '))}
+  💡 *Reason*: ${escapeMarkdownV2(conversation.data.reason.text)}
+  ${conversation.data.type !== NA_VALUE
+              ? `${conversation.data.type === CallType.long ? '📈' : '📉'} *Type*: ${conversation.data.type}\n`
+              : ''}${conversation.data.entries !== NA_VALUE
+                ? `🚪 *Entry*: ${escapeMarkdownV2(conversation.data.entries.map(p => `$${p}`).join(' '))}\n`
+                : ''}${conversation.data.targets !== NA_VALUE
+                  ? `🎯 *Targets*: ${escapeMarkdownV2(conversation.data.targets.map(p => `$${p}`).join(' '))}\n`
+                  : ''}${sl !== NA_VALUE
+                    ? `🛟 *Stop loss*: $${escapeMarkdownV2(sl[0])}\n`
+                    : ''}
+            `
+          const photo = conversation.data.reason.photo
 
-        const collection = await getCollection<DataDoc>(client, COLLECTION_NAME.data)
-        collection.updateOne({ ticker: conversation.data.ticker.toUpperCase() }, { $addToSet: { callURLs: `https://t.me/c/${process.env.CHAT_ID}/${callId}` }})
+          const callId = (
+            isDefined(photo)
+              ? await bot.telegram.sendPhoto(Number(`-100${process.env.CHAT_ID}`), photo, { caption: callMsg, message_thread_id: Number(process.env.CALL_CHAN!), parse_mode: "MarkdownV2" })
+              : await bot.telegram.sendMessage(Number(`-100${process.env.CHAT_ID}`), callMsg, { message_thread_id: Number(process.env.CALL_CHAN!), parse_mode: "MarkdownV2" })
+            )?.message_id
+          // Clean state
+          conversations.delete(ctx.chat.id);
 
-        // Reactions
-        conversations.delete(ctx.chat.id) // Clean state
-        
-        ctx.reply("Call successfully added")
+          const collection = await getCollection<DataDoc>(client, COLLECTION_NAME.data)
+          collection.updateOne({ ticker: conversation.data.ticker.toUpperCase() }, { $addToSet: { callURLs: `https://t.me/c/${process.env.CHAT_ID}/${callId}` } })
+
+          // Reactions
+          conversations.delete(ctx.chat.id) // Clean state
+
+          ctx.reply("Call successfully added")
+        } else {
+          ctx.reply('Please, enter The stop loss level. Just one number (eg: 12.5) or "NA" to skip:');
+        }
       } else {
-        ctx.reply('Please, enter The stop loss level. Just one number (eg: 12.5) or "NA" to skip:');
+        ctx.reply('Send only text.')
       }
       break;
   }
@@ -439,6 +467,20 @@ function getTicker(ticker: string) {
 
 function isValidTicker(ticker: string) {
   return getTicker(ticker)?.length === 1
+}
+
+function isText(ctx: 
+  | NarrowedContext<Context<Update>, Update.MessageUpdate<Record<"text", {}> & Message.TextMessage>>
+  | NarrowedContext<Context<Update>, Update.MessageUpdate<Record<"photo", {}> & Message.PhotoMessage>>
+): ctx is NarrowedContext<Context<Update>, Update.MessageUpdate<Record<"text", {}> & Message.TextMessage>> {
+    return 'text' in ctx.message
+}
+
+function isPhoto(ctx: 
+  | NarrowedContext<Context<Update>, Update.MessageUpdate<Record<"text", {}> & Message.TextMessage>>
+  | NarrowedContext<Context<Update>, Update.MessageUpdate<Record<"photo", {}> & Message.PhotoMessage>>
+): ctx is NarrowedContext<Context<Update>, Update.MessageUpdate<Record<"photo", {}> & Message.PhotoMessage>> {
+    return 'photo' in ctx.message
 }
 
 function getNumbers(msg: string) {
@@ -479,4 +521,8 @@ export async function removeCategories({ client, groupId, categories }: { client
 
 export function escapeMarkdownV2(text: string) {
   return text.replace(/[_*[\]()~`>#\+\-|={}.!]/g, '\\$&');
+}
+
+export function isDefined<T>(option: T | undefined ): option is T {
+  return typeof option !== 'undefined'
 }
