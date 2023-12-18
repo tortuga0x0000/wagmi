@@ -77,10 +77,15 @@ export interface ReminderDoc {
   note?: string
 }
 
+export interface Reason {
+  text: string
+  photo?: string
+}
+
 export interface Call {
   author: string
   ticker: string
-  reason: string
+  reason: Reason
   entries: string[]
   sl: string
   targets: string[]
@@ -121,7 +126,7 @@ export type CallConversation =
   data: { 
     ticker: string
     categories: string[]
-    reason: string
+    reason: Reason
   }
 }
 | {
@@ -129,7 +134,7 @@ export type CallConversation =
   data: {
     ticker: string
     categories: string[]
-    reason: string
+    reason: Reason
     type: CallType | null
   }
 }
@@ -138,7 +143,7 @@ export type CallConversation =
   data: {
     ticker: string
     categories: string[]
-    reason: string
+    reason: Reason
     type: CallType | null
     entries: string[] | null
   }
@@ -148,7 +153,7 @@ export type CallConversation =
   data: {
     ticker: string
     categories: string[]
-    reason: string
+    reason: Reason
     type: CallType | null
     entries: string[] | null
     targets: string[] | null
@@ -159,7 +164,7 @@ export type CallConversation =
   data:{
     ticker: string
     categories: string[]
-    reason: string
+    reason: Reason
     type: CallType | null
     entries: string[] | null
     targets: string[] | null
