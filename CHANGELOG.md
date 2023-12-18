@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.0.1-alpha.19](https://github.com/tortuga0x0000/wagmi/compare/v0.0.1-alpha.18...v0.0.1-alpha.19) (2023-12-18)
+
+
+### Bug Fixes
+
+* can't handle image in reason field ([cd99199](https://github.com/tortuga0x0000/wagmi/commit/cd991998985d057511b7f7cddb7974cc7c9e9e93))
+
 ### [0.0.1-alpha.18](https://github.com/tortuga0x0000/wagmi/compare/v0.0.1-alpha.16...v0.0.1-alpha.18) (2023-12-17)
 
 
