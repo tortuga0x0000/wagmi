@@ -2,6 +2,8 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.0.1-alpha.20](https://github.com/tortuga0x0000/wagmi/compare/v0.0.1-alpha.19...v0.0.1-alpha.20) (2023-12-20)
+
 ### [0.0.1-alpha.19](https://github.com/tortuga0x0000/wagmi/compare/v0.0.1-alpha.18...v0.0.1-alpha.19) (2023-12-18)
 
 

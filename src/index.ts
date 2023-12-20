@@ -6,6 +6,7 @@ import { createTokenButtons, editMessageText, getCollection, getMessageURL, getT
 import { DB_NAME } from './constants';
 import { SORTING, ORDER, ROUTE, DataDoc, COLLECTION_NAME, CallConversation, CallConversationState } from './types';
 import { Update, Message } from 'telegraf/typings/core/types/typegram';
+import { doesBelongsToGroup } from './business';
 
 dotenv.config(process.env.NODE_ENV === "production" ? { path: __dirname + '/.env' } : undefined);
 
@@ -45,10 +46,30 @@ bot.command('list', async function (ctx) {
     replyNoop(ctx);
     return;
   }
+  try {
+    if(!process.env.CHAT_ID || !await doesBelongsToGroup(bot, ctx.from, process.env.CHAT_ID)) {
+      replyNoAuth(ctx);
+      return
+    }
+  } catch(e) {
+    ctx.reply('Error checking group membership.');
+  }
   const buttons = await createTokenButtons(client, { page: 1, sortBy: SORTING.LAST_MENTION, order: ORDER.DSC });
   ctx.reply('Select a token:', buttons);
 });
 bot.command('remind', async function (ctx) {
+  if(!isPrivateChat(ctx)) {
+    replyNoop(ctx);
+    return;
+  }
+  try {
+    if(!process.env.CHAT_ID || !await doesBelongsToGroup(bot, ctx.from, process.env.CHAT_ID)) {
+      replyNoAuth(ctx);
+      return
+    }
+  } catch(e) {
+    ctx.reply('Error checking group membership.');
+  }
   // Setup a reminder for a specific ticker
   const args = ctx.message.text.match(/^\/remind ([A-Z\d]+)\s(\d{4}-\d{2}-\d{2}\s\d{2}:\d{2})(\s.+)?/)
   if (args) {
@@ -126,10 +147,18 @@ bot.command('config', async function (ctx) {
 
 let callConversations: Map<number, CallConversation> = new Map();
 
-bot.command('call', (ctx) => {
+bot.command('call', async (ctx) => {
   if(!isPrivateChat(ctx)) {
-    replyNoop(ctx)
+    replyNoop(ctx);
     return;
+  }
+  try {
+    if(!process.env.CHAT_ID || !await doesBelongsToGroup(bot, ctx.from, process.env.CHAT_ID)) {
+      replyNoAuth(ctx);
+      return
+    }
+  } catch(e) {
+    ctx.reply('Error checking group membership.');
   }
   const chatId = ctx.chat.id;
   const conversation = { step: CallConversationState.new }
@@ -241,6 +270,14 @@ function replyNoop(ctx: Context<{
   update_id: number;
 }>) {
   ctx.reply(`Please use this command in private chat with @${ctx.botInfo.username}`);
+}
+
+
+function replyNoAuth(ctx: Context<{
+  message: Update.New & Update.NonChannel & Message.TextMessage;
+  update_id: number;
+}>) {
+  ctx.reply('You are not allowed to use this bot.');
 }
 
 function getNavParams(queryParams: URLSearchParams) {
