@@ -536,6 +536,19 @@ export async function doesBelongsToGroup(bot: Telegraf, { id: userId }: { id: nu
   })
 }
 
-export function replyPrivate() {
+export async function removeCallFromProject(client: MongoClient, messageId: number) {
+  const collection = await getCollection<DataDoc>(client, COLLECTION_NAME.data)
+  collection.updateOne(
+    { callURLs: { $regex: messageId.toString() } },
+    { $pull: { callURLs: { $regex: messageId.toString() } } }
+  )
+}
 
+export function parseTelegramPrivateGroupMessageUrl(url: string) {
+  const regex = /https:\/\/t\.me\/c\/(\d+)(\/\d+)?\/(\d+)/;
+  const match = url.match(regex);
+
+  if (match && match.length >= 2) {
+      return { chatId: Number(`-100${match[1]}`), messageId: Number(match.at(-1)) };
+  }
 }
