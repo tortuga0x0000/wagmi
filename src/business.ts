@@ -1,7 +1,7 @@
 import { MongoClient, ObjectId, WithId } from "mongodb";
 import { DB_NAME, NA_ANSWER, NA_VALUE, TOKENS_PER_PAGE } from "./constants";
 import { ROUTE, COLLECTION_NAME, DataDoc, ORDER, ReminderDoc, SORTING, CallConversation, CallConversationState, CallType, Config } from "./types";
-import { Context, Markup, NarrowedContext, Telegraf } from "telegraf";
+import { Context, Markup, NarrowedContext, Telegraf, Telegram } from "telegraf";
 import { FmtString } from "telegraf/typings/format";
 import { ExtraEditMessageText } from "telegraf/typings/telegram-types";
 import { NavParams } from "./types";
@@ -525,4 +525,17 @@ export function escapeMarkdownV2(text: string) {
 
 export function isDefined<T>(option: T | undefined ): option is T {
   return typeof option !== 'undefined'
+}
+
+export async function doesBelongsToGroup(bot: Telegraf, { id: userId }: { id: number }, groupId: string): Promise<boolean> {
+  return bot.telegram.getChatMember('-100'+groupId, userId)
+  .then(member => member && (member.status === 'member' || member.status === 'administrator' || member.status === 'creator'))
+  .catch(e => {
+    console.error(e)
+    return false
+  })
+}
+
+export function replyPrivate() {
+
 }
