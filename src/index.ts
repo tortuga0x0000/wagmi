@@ -237,6 +237,9 @@ bot.on(message('photo'), ctx => {
   if (callConversation) {
     continueCallConversation({ bot, client, ctx, conversation: callConversation, conversations: callConversations })
   }
+  if (ctx.message.message_thread_id?.toString() === process.env.CALL_CHAN) {
+    ctx.deleteMessage(ctx.message.message_id)
+  }
 })
 
 // WARNING: always declare this handler last otherwise it will swallow the bot commands
