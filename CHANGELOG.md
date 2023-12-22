@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.0.1-alpha.21](https://github.com/tortuga0x0000/wagmi/compare/v0.0.1-alpha.19...v0.0.1-alpha.21) (2023-12-22)
+
+
+### Features
+
+* add admin delete command ([6700a62](https://github.com/tortuga0x0000/wagmi/commit/6700a62b5753836199557b4e0d2afefe205d17ea))
+
+
+### Bug Fixes
+
+* delete photo ([59f6124](https://github.com/tortuga0x0000/wagmi/commit/59f612470adc268540ef038ae054b6534c39dd62))
+
 ### [0.0.1-alpha.20](https://github.com/tortuga0x0000/wagmi/compare/v0.0.1-alpha.19...v0.0.1-alpha.20) (2023-12-20)
 
 ### [0.0.1-alpha.19](https://github.com/tortuga0x0000/wagmi/compare/v0.0.1-alpha.18...v0.0.1-alpha.19) (2023-12-18)
