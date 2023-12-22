@@ -2,6 +2,33 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.0.1-alpha.20](https://github.com/tortuga0x0000/wagmi/compare/v0.0.1-alpha.19...v0.0.1-alpha.20) (2023-12-20)
+
+### [0.0.1-alpha.19](https://github.com/tortuga0x0000/wagmi/compare/v0.0.1-alpha.18...v0.0.1-alpha.19) (2023-12-18)
+
+
+### Bug Fixes
+
+* can't handle image in reason field ([cd99199](https://github.com/tortuga0x0000/wagmi/commit/cd991998985d057511b7f7cddb7974cc7c9e9e93))
+
+### [0.0.1-alpha.18](https://github.com/tortuga0x0000/wagmi/compare/v0.0.1-alpha.16...v0.0.1-alpha.18) (2023-12-17)
+
+
+### Features
+
+* add config command ([f810af7](https://github.com/tortuga0x0000/wagmi/commit/f810af71b95838df973eeea62e42877c54a0d37b))
+* call commands ([efcc14b](https://github.com/tortuga0x0000/wagmi/commit/efcc14bc8bcc2a3b6f632269aab08e63fd6c3d27))
+* remove categories ([3ef4b53](https://github.com/tortuga0x0000/wagmi/commit/3ef4b53630bd2819151f91cbb2f5cf6482d42be2))
+
+
+### Bug Fixes
+
+* dot notation ([51be576](https://github.com/tortuga0x0000/wagmi/commit/51be5768be46d6e8b26313a9afda829c70c7bc62))
+* hard coded channel ([2166384](https://github.com/tortuga0x0000/wagmi/commit/2166384f2c446b70444a7c59b30a573e8d1ed6b9))
+* numbers ([a86da39](https://github.com/tortuga0x0000/wagmi/commit/a86da39015c8713caaabc9cbb432c8c1abc34e78))
+* unescape md ([adf7603](https://github.com/tortuga0x0000/wagmi/commit/adf76030cda9bdb261459c2c61b6bc1f79a62041))
+* unescaped ([d4c35f2](https://github.com/tortuga0x0000/wagmi/commit/d4c35f288be07c2068d5cbddb93344b80a9090d9))
+
 ### [0.0.1-alpha.17](https://github.com/tortuga0x0000/wagmi/compare/v0.0.1-alpha.15...v0.0.1-alpha.17) (2023-12-15)
 
 

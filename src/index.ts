@@ -2,10 +2,11 @@ import * as dotenv from 'dotenv'
 import { MongoClient } from 'mongodb';
 import { Context, Markup, Telegraf } from 'telegraf'
 import { message } from 'telegraf/filters'
-import { createTokenButtons, editMessageText, getCollection, getMessageURL, getTickers, getTokenInfos, toOrder, toSorting, formatDate, isDate, addReminder, checkTicker, startReminders, startReminder, isPrivateChat, continueCallConversation, getConfig, addCategories, createConfigIfNotExists, removeCategories } from './business';
+import { createTokenButtons, editMessageText, getCollection, getMessageURL, getTickers, getTokenInfos, toOrder, toSorting, formatDate, isDate, addReminder, checkTicker, startReminders, startReminder, isPrivateChat, continueCallConversation, getConfig, addCategories, createConfigIfNotExists, removeCategories, removeCallFromProject, parseTelegramPrivateGroupMessageUrl } from './business';
 import { DB_NAME } from './constants';
 import { SORTING, ORDER, ROUTE, DataDoc, COLLECTION_NAME, CallConversation, CallConversationState } from './types';
 import { Update, Message } from 'telegraf/typings/core/types/typegram';
+import { doesBelongsToGroup } from './business';
 
 dotenv.config(process.env.NODE_ENV === "production" ? { path: __dirname + '/.env' } : undefined);
 
@@ -45,10 +46,30 @@ bot.command('list', async function (ctx) {
     replyNoop(ctx);
     return;
   }
+  try {
+    if(!process.env.CHAT_ID || !await doesBelongsToGroup(bot, ctx.from, process.env.CHAT_ID)) {
+      replyNoAuth(ctx);
+      return
+    }
+  } catch(e) {
+    ctx.reply('Error checking group membership.');
+  }
   const buttons = await createTokenButtons(client, { page: 1, sortBy: SORTING.LAST_MENTION, order: ORDER.DSC });
   ctx.reply('Select a token:', buttons);
 });
 bot.command('remind', async function (ctx) {
+  if(!isPrivateChat(ctx)) {
+    replyNoop(ctx);
+    return;
+  }
+  try {
+    if(!process.env.CHAT_ID || !await doesBelongsToGroup(bot, ctx.from, process.env.CHAT_ID)) {
+      replyNoAuth(ctx);
+      return
+    }
+  } catch(e) {
+    ctx.reply('Error checking group membership.');
+  }
   // Setup a reminder for a specific ticker
   const args = ctx.message.text.match(/^\/remind ([A-Z\d]+)\s(\d{4}-\d{2}-\d{2}\s\d{2}:\d{2})(\s.+)?/)
   if (args) {
@@ -98,6 +119,7 @@ bot.command('config', async function (ctx) {
   // Setup a reminder for a specific ticker
   if (ctx.message.from.username !== "tortuga0x0000") {
     ctx.reply('Only @tortuga0x0000 can configure it for now.')
+    return
   }
   const args = ctx.message.text.match(/^\/config( \d+)? (categories) (add|remove) (.*)/)
   if (args) {
@@ -126,16 +148,52 @@ bot.command('config', async function (ctx) {
 
 let callConversations: Map<number, CallConversation> = new Map();
 
-bot.command('call', (ctx) => {
+bot.command('call', async (ctx) => {
   if(!isPrivateChat(ctx)) {
-    replyNoop(ctx)
+    replyNoop(ctx);
     return;
+  }
+  try {
+    if(!process.env.CHAT_ID || !await doesBelongsToGroup(bot, ctx.from, process.env.CHAT_ID)) {
+      replyNoAuth(ctx);
+      return
+    }
+  } catch(e) {
+    ctx.reply('Error checking group membership.');
   }
   const chatId = ctx.chat.id;
   const conversation = { step: CallConversationState.new }
   callConversations.set(chatId, conversation as any) // FIX: tagged type
 
   ctx.reply("Enter the ticker:")
+})
+
+bot.command('delete_call', async (ctx) => {
+  // Setup a reminder for a specific ticker
+  if(!isPrivateChat(ctx)) {
+    replyNoop(ctx);
+    return;
+  }
+  if (ctx.message.from.username !== "tortuga0x0000") {
+    ctx.reply('Only @tortuga0x0000 can delete for now.')
+    return
+  }
+  const args = ctx.message.text.match(/^\/delete_call (.+)/)
+  if (args && args.length) {
+    const messageUrls = args[1].split(' ')
+    for (const url of messageUrls) {
+      const parsedUrl = parseTelegramPrivateGroupMessageUrl(url)
+      if (parsedUrl) {
+        bot.telegram.deleteMessage(parsedUrl.chatId, parsedUrl.messageId).catch(e => {
+          console.error(e)
+          ctx.reply(`Message ${url} to delete not found`)
+        })
+        await removeCallFromProject(client, parsedUrl.messageId)
+      }
+      
+    }
+    
+  }
 })
 
 // Handling info
@@ -172,6 +230,16 @@ bot.action(new RegExp(`(${ROUTE.reminders}\\?)(.+)`), async (ctx) => {
   const queryParams = new URLSearchParams(ctx.match[2])
 
   const { page, sortBy, order } = getNavParams(queryParams);
+})
+
+bot.on(message('photo'), ctx => {
+  const callConversation = callConversations.get(ctx.chat.id);
+  if (callConversation) {
+    continueCallConversation({ bot, client, ctx, conversation: callConversation, conversations: callConversations })
+  }
+  if (ctx.message.message_thread_id?.toString() === process.env.CALL_CHAN) {
+    ctx.deleteMessage(ctx.message.message_id)
+  }
 })
 
 // WARNING: always declare this handler last otherwise it will swallow the bot commands
@@ -234,6 +302,14 @@ function replyNoop(ctx: Context<{
   update_id: number;
 }>) {
   ctx.reply(`Please use this command in private chat with @${ctx.botInfo.username}`);
+}
+
+
+function replyNoAuth(ctx: Context<{
+  message: Update.New & Update.NonChannel & Message.TextMessage;
+  update_id: number;
+}>) {
+  ctx.reply('You are not allowed to use this bot.');
 }
 
 function getNavParams(queryParams: URLSearchParams) {
