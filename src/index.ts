@@ -2,7 +2,7 @@ import * as dotenv from 'dotenv'
 import { MongoClient } from 'mongodb';
 import { Context, Markup, Telegraf } from 'telegraf'
 import { message } from 'telegraf/filters'
-import { createTokenButtons, editMessageText, getCollection, getMessageURL, getTickers, getTokenInfos, toOrder, toSorting, formatDate, isDate, addReminder, checkTicker, startReminders, startReminder, isPrivateChat, continueCallConversation, getConfig, addCategories, createConfigIfNotExists, removeCategories } from './business';
+import { createTokenButtons, editMessageText, getCollection, getMessageURL, getTickers, getTokenInfos, toOrder, toSorting, formatDate, isDate, addReminder, checkTicker, startReminders, startReminder, isPrivateChat, continueCallConversation, getConfig, addCategories, createConfigIfNotExists, removeCategories, removeCallFromProject, parseTelegramPrivateGroupMessageUrl } from './business';
 import { DB_NAME } from './constants';
 import { SORTING, ORDER, ROUTE, DataDoc, COLLECTION_NAME, CallConversation, CallConversationState } from './types';
 import { Update, Message } from 'telegraf/typings/core/types/typegram';
@@ -119,6 +119,7 @@ bot.command('config', async function (ctx) {
   // Setup a reminder for a specific ticker
   if (ctx.message.from.username !== "tortuga0x0000") {
     ctx.reply('Only @tortuga0x0000 can configure it for now.')
+    return
   }
   const args = ctx.message.text.match(/^\/config( \d+)? (categories) (add|remove) (.*)/)
   if (args) {
@@ -167,6 +168,34 @@ bot.command('call', async (ctx) => {
   ctx.reply("Enter the ticker:")
 })
 
+bot.command('delete_call', async (ctx) => {
+  // Setup a reminder for a specific ticker
+  if(!isPrivateChat(ctx)) {
+    replyNoop(ctx);
+    return;
+  }
+  if (ctx.message.from.username !== "tortuga0x0000") {
+    ctx.reply('Only @tortuga0x0000 can delete for now.')
+    return
+  }
+  const args = ctx.message.text.match(/^\/delete_call (.+)/)
+  if (args && args.length) {
+    const messageUrls = args[1].split(' ')
+    for (const url of messageUrls) {
+      const parsedUrl = parseTelegramPrivateGroupMessageUrl(url)
+      if (parsedUrl) {
+        bot.telegram.deleteMessage(parsedUrl.chatId, parsedUrl.messageId).catch(e => {
+          console.error(e)
+          ctx.reply(`Message ${url} to delete not found`)
+        })
+        await removeCallFromProject(client, parsedUrl.messageId)
+      }
+      
+    }
+    
+  }
+})
+
 // Handling info
 bot.action(new RegExp(`(${ROUTE.info}\\?)(.+)`), async function (ctx) { // Note the double \\ to escape the ? because we use a template litteral
   // Parse the query payload
@@ -207,6 +236,9 @@ bot.on(message('photo'), ctx => {
   const callConversation = callConversations.get(ctx.chat.id);
   if (callConversation) {
     continueCallConversation({ bot, client, ctx, conversation: callConversation, conversations: callConversations })
+  }
+  if (ctx.message.message_thread_id?.toString() === process.env.CALL_CHAN) {
+    ctx.deleteMessage(ctx.message.message_id)
   }
 })
 
